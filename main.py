@@ -4,14 +4,14 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from datetime import datetime
 import random
 
-# --- הגדרות עמוד פרימיום ---
+# --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Music Time Machine | פס הקול של חייך",
-    page_icon="🎸",
+    page_title="Music Time Machine",
+    page_icon="🎵",
     layout="wide"
 )
 
-# --- עיצוב CSS ברמה הכי גבוהה בשוק (Glassmorphism & Neon) ---
+# --- 2. LUXURY UI DESIGN (CSS) ---
 st.markdown("""
 <style>
     .stApp {
@@ -42,96 +42,100 @@ st.markdown("""
         padding: 15px !important;
         font-weight: bold !important;
         border: none !important;
-        font-size: 1.2rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 
-# --- פונקציית התחברות עם CACHING לעמידה בעומס ---
+# --- 3. SPOTIFY API CONNECTION ---
 @st.cache_resource
-def get_spotify_client(client_id, client_secret):
-    auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
-    return spotipy.Spotify(auth_manager=auth_manager)
+def init_spotify():
+    try:
+        # Pulling credentials from Streamlit Secrets
+        if "CLIENT_ID" not in st.secrets or "CLIENT_SECRET" not in st.secrets:
+            return None
+
+        client_id = st.secrets["b7e4ccf806ef4a2195d92cdfa30f9705"]
+        client_secret = st.secrets["232f29ea99ea489d9d744e843ec8342a"]
+
+        auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
+        return spotipy.Spotify(auth_manager=auth_manager)
+    except Exception:
+        return None
 
 
-# הכנס את המפתחות שלך כאן
-CLIENT_ID = "b7e4ccf806ef4a2195d92cdfa30f9705"
-CLIENT_SECRET = "232f29ea99ea489d9d744e843ec8342a"
-
-sp = get_spotify_client(CLIENT_ID, CLIENT_SECRET)
+sp = init_spotify()
 
 
-# --- חיפוש שירים עם CACHING למניעת כפילויות ---
-@st.cache_data(show_spinner=False)
-def search_songs_by_date(birth_year, target_md, selected_genre):
-    songs = []
+# --- 4. DATA FETCHING ---
+def get_songs_for_birthday(birth_year, target_date_md, genre):
+    if not sp: return []
+    tracks_list = []
     current_year = datetime.now().year
+
     for year in range(birth_year, current_year + 1):
-        query = f"genre:{selected_genre} year:{year}"
-        results = sp.search(q=query, limit=50, type='track')
-        for track in results['tracks']['items']:
-            release_date = track['album'].get('release_date', "")
-            if release_date.endswith(target_md):
-                songs.append({
-                    "year": year,
-                    "name": track['name'],
-                    "artist": track['artists'][0]['name'],
-                    "image": track['album']['images'][0]['url'] if track['album']['images'] else "",
-                    "preview": track.get('preview_url'),
-                    "url": track['external_urls']['spotify']
-                })
-                break
-    return songs
+        query = f"genre:{genre} year:{year}"
+        try:
+            results = sp.search(q=query, limit=50, type='track')
+            for track in results['tracks']['items']:
+                release_date = track['album'].get('release_date', "")
+                if release_date.endswith(target_date_md):
+                    tracks_list.append({
+                        "year": year,
+                        "name": track['name'],
+                        "artist": track['artists'][0]['name'],
+                        "image": track['album']['images'][0]['url'] if track['album']['images'] else "",
+                        "preview": track.get('preview_url'),
+                        "url": track['external_urls']['spotify']
+                    })
+                    break
+        except:
+            continue
+    return tracks_list
 
 
-# --- ממשק האתר ---
+# --- 5. MAIN INTERFACE ---
 st.markdown("<h1 style='text-align: center;'>⚡ Music Time Machine</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; opacity: 0.8;'>חוויה מוזיקלית אישית המבוססת על יום הלידה שלכם</p>",
-            unsafe_allow_html=True)
+
+if not sp:
+    st.error("Missing Credentials! Please check your Streamlit Secrets.")
+    st.stop()
 
 with st.container():
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        name = st.text_input("שם המשתמש", placeholder="הכנס שם...")
-    with c2:
-        dob = st.date_input("תאריך לידה", min_value=datetime(1950, 1, 1), max_value=datetime.now())
-    with c3:
-        genre = st.selectbox("סגנון מוזיקלי", ['Pop', 'Rock', 'Hip Hop', 'Electronic', 'Jazz', 'Metal', 'R&B'])
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        user_name = st.text_input("Username", placeholder="Enter your name...")
+    with col2:
+        dob = st.date_input("Birthday", min_value=datetime(1950, 1, 1))
+    with col3:
+        genre = st.selectbox("Genre", ['Pop', 'Rock', 'Hip Hop', 'Electronic', 'Jazz', 'Metal'])
 
-    submit = st.button("צור את פס הקול שלי ✨")
-    st.markdown('</div>', unsafe_allow_html=True)
+    if st.button("Generate Soundtrack ✨"):
+        if user_name:
+            st.balloons()
+            target_md = dob.strftime("-%m-%d")
+            with st.spinner("Travelling through time..."):
+                results = get_songs_for_birthday(dob.year, target_md, genre)
 
-if submit and name:
-    st.balloons()
-    target_md = dob.strftime("-%m-%d")
-    results = search_songs_by_date(dob.year, target_md, genre)
-
-    if results:
-        for s in results:
-            st.markdown(f"""
-            <div class="glass-card">
-                <div style="display: flex; align-items: center; gap: 20px;">
-                    <img src="{s['image']}" width="100" style="border-radius: 10px;">
-                    <div>
-                        <h3 style="margin:0;">{s['year']}: {s['name']}</h3>
-                        <p style="margin:0; opacity:0.7;">{s['artist']}</p>
+            if results:
+                st.subheader(f"Hey {user_name}, here is your life soundtrack:")
+                for s in results:
+                    st.markdown(f"""
+                    <div class="glass-card">
+                        <div style="display: flex; align-items: center; gap: 20px;">
+                            <img src="{s['image']}" width="90" style="border-radius: 12px;">
+                            <div>
+                                <h3 style="margin: 0;">{s['year']}: {s['name']}</h3>
+                                <p style="margin: 0; opacity: 0.7;">By {s['artist']}</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            if s['preview']:
-                st.audio(s['preview'])
+                    """, unsafe_allow_html=True)
+                    if s['preview']:
+                        st.audio(s['preview'])
+                    else:
+                        st.info(f"🔗 [Listen on Spotify]({s['url']})")
             else:
-                st.info(f"🔗 [האזנה מלאה בספוטיפיי]({s['url']})")
-    else:
-        st.warning("לא מצאנו שירים לתאריך המדויק הזה. נסה לשנות ז'אנר!")
-
-# --- Sidebar AI (תיקון השגיאה) ---
-st.sidebar.title("🤖 AI Insights")
-if dob:
-    # תיקון טווח השנים בשגיאה
-    safe_end_year = max(dob.year, 2024)
-    suggested_year = random.randint(dob.year, safe_end_year)
-    st.sidebar.write(f"היי {name}, ה-AI מזהה שנת {suggested_year} כשנה משמעותית עבורך!")
+                st.warning("No hits found for this specific date. Try another genre!")
+    st.markdown('</div>', unsafe_allow_html=True)
