@@ -1,119 +1,114 @@
 import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-import random
 
-# הגדרות דף מתקדמות
-st.set_page_config(page_title="VibeTune AI", page_icon="🎵", layout="wide")
+# הגדרות דף
+st.set_page_config(page_title="VibeTune Pro", page_icon="🎵", layout="wide")
 
-# עיצוב CSS יוקרתי ומקצועי (רקעים משתנים, צבעים חיים, כרטיסיות זכוכית)
+# עיצוב UI יוקרתי, בהיר וקריא
 st.markdown("""
 <style>
     .stApp {
-        background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
-                    url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1920&q=80');
+        background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), 
+                    url('https://images.unsplash.com/photo-1493225255756-d9584f8606e9?auto=format&fit=crop&w=1920&q=80');
         background-size: cover;
         background-attachment: fixed;
-        color: white;
     }
-    .glass-card {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 25px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: transform 0.3s ease;
+    .main-container {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 40px;
+        border-radius: 25px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+        margin-top: 20px;
     }
-    .glass-card:hover {
-        transform: translateY(-5px);
-        background: rgba(255, 255, 255, 0.1);
+    h1, h2, h3, p, label {
+        color: #1a1a1a !important; /* טקסט כהה וברור */
+        font-weight: bold !important;
     }
-    .spotify-btn {
+    .song-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 10px solid #1DB954;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    .spotify-link {
         background-color: #1DB954;
         color: white !important;
-        text-decoration: none;
         padding: 10px 20px;
         border-radius: 50px;
-        font-weight: bold;
+        text-decoration: none;
         display: inline-block;
-        margin-top: 10px;
-    }
-    .main-header {
-        font-size: 60px;
-        font-weight: 800;
-        background: -webkit-linear-gradient(#1DB954, #19e68c);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
+        font-size: 14px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# חיבור בטוח לספוטיפיי
+# פונקציית חיבור לספוטיפיי
 @st.cache_resource
-def init_sp():
+def init_spotify():
     try:
         cid = st.secrets["CLIENT_ID"].strip()
         csec = st.secrets["CLIENT_SECRET"].strip()
         return spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=cid, client_secret=csec))
     except Exception as e:
-        st.error("שגיאת חיבור לספוטיפיי - וודא שה-Secrets תקינים.")
         return None
 
-sp = init_sp()
+sp = init_spotify()
 
-st.markdown('<h1 class="main-header">VibeTune AI</h1>', unsafe_allow_html=True)
-st.write("<p style='text-align: center; font-size: 1.2rem;'>הדור הבא של יצירת הפלייליסטים האישיים</p>", unsafe_allow_html=True)
-
-# ממשק משתמש משופר
+# תוכן האתר בתוך מיכל בהיר
 with st.container():
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        name = st.text_input("איך קוראים לך?", "מנדי")
-    with c2:
-        genre = st.selectbox("ז'אנר מועדף", ["Pop", "Deep House", "Classic Rock", "Israeli", "Techno", "Hip Hop"])
-    with c3:
-        mood = st.select_slider("מה הווייב?", options=["Relaxed", "Chill", "Happy", "Energetic", "Pure Party"])
-    go = st.button("🚀 צור פלייליסט חלומי")
+    st.markdown('<div class="main-container">', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align: center; font-size: 50px;">🎶 VibeTune Pro</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center;">הפלייליסט המושלם מחכה לך כאן</p>', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        name = st.text_input("איך לקרוא לך?", "מנדי")
+    with col2:
+        genre = st.selectbox("בחר סגנון מוזיקה", 
+                            ["Rock", "Pop", "Hip Hop", "Metal", "Electronic", "Jazz", "R&B", "Israeli", "Classic"])
+    with col3:
+        mood = st.selectbox("מה הווייב שלך?", 
+                           ["Energetic", "Relaxed", "Happy", "Dark", "Party", "Focus"])
+
+    generate_btn = st.button("🚀 צור לי פלייליסט מקצועי")
     st.markdown('</div>', unsafe_allow_html=True)
 
-if go:
-    if not sp:
-        st.stop()
+if generate_btn:
+    if sp:
+        st.balloons()
+        st.markdown(f"<h2 style='color: white !important; text-shadow: 2px 2px 4px #000;'>✨ הפלייליסט של {name}:</h2>", unsafe_allow_html=True)
         
-    st.balloons()
-    st.subheader(f"✨ {name}, הפסקול המדויק עבורך:")
-    
-    # חיפוש חכם
-    query = f"genre:{genre} {mood}"
-    try:
-        results = sp.search(q=query, limit=12, type='track')
-        
-        if results['tracks']['items']:
-            # יצירת גריד של כרטיסיות
-            cols = st.columns(2)
-            for idx, track in enumerate(results['tracks']['items']):
-                with cols[idx % 2]:
+        # בניית שאילתת חיפוש
+        query = f"genre:{genre} {mood}"
+        try:
+            results = sp.search(q=query, limit=10, type='track')
+            
+            if results['tracks']['items']:
+                for track in results['tracks']['items']:
+                    # כרטיסיית שיר מעוצבת ובהירה
                     st.markdown(f"""
-                    <div class="glass-card" style="margin-bottom: 20px;">
-                        <div style="display: flex; gap: 20px;">
-                            <img src="{track['album']['images'][0]['url']}" width="120" style="border-radius: 12px;">
-                            <div>
-                                <h3 style="margin:0;">{track['name']}</h3>
-                                <p style="color: #b3b3b3;">{track['artists'][0]['name']}</p>
-                                <a href="{track['external_urls']['spotify']}" target="_blank" class="spotify-btn">Play on Spotify 🎧</a>
-                            </div>
+                    <div class="song-card">
+                        <img src="{track['album']['images'][0]['url']}" width="100" style="border-radius: 8px;">
+                        <div style="flex-grow: 1;">
+                            <h3 style="margin:0;">{track['name']}</h3>
+                            <p style="margin:0; color: #666 !important;">{track['artists'][0]['name']}</p>
+                            <a href="{track['external_urls']['spotify']}" target="_blank" class="spotify-link">האזן בספוטיפיי 🎧</a>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # פתרון הבאג מהפעם הקודמת - בדיקה אם יש Preview
-                    preview = track.get('preview_url')
-                    if preview:
-                        st.audio(preview)
-        else:
-            st.warning("לא נמצאו שירים לשילוב הזה, נסה ז'אנר אחר!")
-            
-    except Exception as e:
-        st.error("הייתה תקלה קטנה בחיפוש, נסה שוב בעוד רגע.")
+                    # השמעת דגימה במידה וקיימת
+                    if track.get('preview_url'):
+                        st.audio(track['preview_url'])
+            else:
+                st.warning("לא מצאנו שירים שמתאימים בדיוק לשילוב הזה. נסה שילוב אחר!")
+        except Exception as e:
+            st.error("הייתה שגיאה בתקשורת עם ספוטיפיי. נסה שוב בעוד רגע.")
+    else:
+        st.error("חסרים מפתחות גישה (Secrets). וודא שהגדרת אותם ב-Streamlit.")
