@@ -2,144 +2,189 @@ import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-# הגדרות דף ברמה הגבוהה ביותר
-st.set_page_config(page_title="VibeLab | Personal Soundtrack", page_icon="🎧", layout="wide")
+# הגדרות דף
+st.set_page_config(page_title="VibeLab Ultra", page_icon="⚡", layout="wide")
 
-# אתחול Session State לשמירת היסטוריית פלייליסטים (כדי שלא ייעלמו)
+# אתחול היסטוריה
 if 'playlist_history' not in st.session_state:
     st.session_state.playlist_history = []
 if 'current_tracks' not in st.session_state:
     st.session_state.current_tracks = []
 
-# עיצוב CSS יוקרתי (Dark Mode, פונטים של גוגל, Glassmorphism)
+# עיצוב CSS ברמה של אתר פרימיום
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
+    /* הגדרות גלובליות */
     * { font-family: 'Assistant', sans-serif; }
+    
     .stApp {
-        background: radial-gradient(circle at top right, #1e1e2e, #111119);
+        background: #050505;
         color: #ffffff;
     }
-    .glass-header {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(15px);
-        padding: 40px;
-        border-radius: 30px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+
+    /* Hero Section - תמונת כותרת מקצועית */
+    .hero-container {
+        background: linear-gradient(rgba(0,0,0,0.3), rgba(5,5,5,1)), 
+                    url('https://images.unsplash.com/photo-1514525253361-bee8718a74a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+        background-size: cover;
+        background-position: center;
+        padding: 100px 20px;
         text-align: center;
-        margin-bottom: 30px;
+        border-radius: 0 0 50px 50px;
+        margin: -60px -20px 40px -20px;
     }
-    .track-card {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 20px;
-        padding: 20px;
-        margin-bottom: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    .hero-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 85px;
+        font-weight: 900;
+        letter-spacing: -2px;
+        margin-bottom: 0;
+        background: linear-gradient(to right, #1DB954, #1ed760, #ffffff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1;
     }
-    .track-card:hover {
-        background: rgba(255, 255, 255, 0.1);
-        transform: scale(1.02);
-        border-color: #1DB954;
+
+    .hero-subtitle {
+        font-size: 24px;
+        font-weight: 300;
+        letter-spacing: 5px;
+        text-transform: uppercase;
+        opacity: 0.7;
+        margin-top: 10px;
     }
-    .stButton>button {
-        background: linear-gradient(90deg, #1DB954, #19e68c);
-        color: black !important;
-        font-weight: 800;
-        border-radius: 50px;
-        padding: 15px 40px;
-        border: none;
-        width: 100%;
-        transition: all 0.3s ease;
+
+    /* כרטיסיות הקלט */
+    .input-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 30px;
+        border-radius: 25px;
+        backdrop-filter: blur(20px);
     }
-    .stButton>button:hover {
-        box-shadow: 0 0 25px rgba(29, 185, 84, 0.4);
-        transform: translateY(-2px);
-    }
-    .spotify-link {
-        color: #1DB954 !important;
-        text-decoration: none;
+
+    /* עיצוב טקסט של כרטיסיות שירים */
+    .track-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.4rem;
         font-weight: 700;
-        font-size: 0.9rem;
+        color: #ffffff;
+        margin-bottom: 5px;
     }
-    /* התאמתSidebar */
-    section[data-testid="stSidebar"] {
-        background-color: rgba(0, 0, 0, 0.3);
+
+    .artist-name {
+        font-size: 1rem;
+        color: #1DB954;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* כפתורים */
+    .stButton>button {
+        background: #1DB954 !important;
+        color: black !important;
+        border-radius: 12px !important;
+        height: 3.5em !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 2px !important;
+        border: none !important;
+        transition: 0.3s all !important;
+    }
+    
+    .stButton>button:hover {
+        transform: scale(1.02) !important;
+        box-shadow: 0 10px 30px rgba(29, 185, 84, 0.3) !important;
+    }
+
+    /* תיקון היסטוריה בסידבר */
+    [data-testid="stSidebar"] {
+        background-color: #0a0a0a;
+        border-right: 1px solid rgba(255,255,255,0.05);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# חיבור לספוטיפיי
+# פונקציית חיבור
 @st.cache_resource
-def connect_spotify():
+def get_spotify():
     try:
-        cid = st.secrets["CLIENT_ID"].strip()
-        csec = st.secrets["CLIENT_SECRET"].strip()
-        return spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=cid, client_secret=csec))
-    except:
-        return None
+        return spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+            client_id=st.secrets["CLIENT_ID"].strip(),
+            client_secret=st.secrets["CLIENT_SECRET"].strip()
+        ))
+    except: return None
 
-sp = connect_spotify()
+sp = get_spotify()
 
-# סרגל צד - היסטוריית פלייליסטים
+# --- ממשק משתמש ---
+
+# Hero Section
+st.markdown("""
+    <div class="hero-container">
+        <div class="hero-title">VIBELAB</div>
+        <div class="hero-subtitle">Personalized Soundscapes</div>
+    </div>
+""", unsafe_allow_html=True)
+
+# סידבר היסטוריה
 with st.sidebar:
-    st.markdown("### 🕒 היסטוריית פלייליסטים")
-    if st.session_state.playlist_history:
-        for i, entry in enumerate(reversed(st.session_state.playlist_history)):
-            if st.button(f"🎼 {entry['name']} - {entry['genre']}", key=f"hist_{i}"):
-                st.session_state.current_tracks = entry['tracks']
-    else:
-        st.write("כאן יופיעו הפלייליסטים הקודמים שלך")
+    st.markdown("<h2 style='color:#1DB954;'>🕒 Session History</h2>", unsafe_allow_html=True)
+    for i, entry in enumerate(reversed(st.session_state.playlist_history)):
+        if st.button(f"🎵 {entry['genre']} - {entry['vibe']}", key=f"h_{i}"):
+            st.session_state.current_tracks = entry['tracks']
 
-# תוכן ראשי
-st.markdown('<div class="glass-header">', unsafe_allow_html=True)
-st.markdown('<h1 style="font-size: 3.5rem; margin-bottom: 0;">VibeLab</h1>', unsafe_allow_html=True)
-st.markdown('<p style="font-size: 1.2rem; opacity: 0.8;">הופכים את הרגש שלך למוזיקה</p>', unsafe_allow_html=True)
+# אזור קלט מעוצב
+st.markdown('<div class="input-card">', unsafe_allow_html=True)
+c1, c2, c3 = st.columns([1.5, 1, 1])
+with c1:
+    user_name = st.text_input("שם המשתמש", placeholder="הכנס שם...")
+with c2:
+    selected_genre = st.selectbox("ז'אנר", ["Techno", "Rock", "Hip Hop", "Israeli", "Indie", "Jazz", "Metal"])
+with c3:
+    selected_vibe = st.selectbox("אווירה", ["Late Night", "Gym Flow", "Deep Chill", "Party Mode", "Focus"])
+
+generate = st.button("Generate Playlist ⚡")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# אזור הקלט
-col1, col2, col3 = st.columns([1, 1, 1])
-with col1:
-    user_name = st.text_input("איך לקרוא לך?", placeholder="למשל: מנדי")
-with col2:
-    selected_genre = st.selectbox("סגנון מוזיקלי", 
-                                ["Rock", "Techno", "Hip Hop", "Indie", "Israeli", "Classic Rock", "Jazz", "Metal", "Blues"])
-with col3:
-    selected_vibe = st.selectbox("מה האווירה?", 
-                                ["Late Night", "Gym Flow", "Work Focus", "Party Mode", "Deep Chill", "Morning Vibes"])
-
-if st.button("צור את החוויה שלי ✨"):
-    if sp and user_name:
-        with st.spinner('מזקקים את הצלילים המושלמים...'):
-            q = f"genre:{selected_genre} {selected_vibe}"
-            results = sp.search(q=q, limit=10, type='track')
-            
+# לוגיקה
+if generate and user_name:
+    if sp:
+        with st.spinner('Curating your vibe...'):
+            results = sp.search(q=f"genre:{selected_genre} {selected_vibe}", limit=12, type='track')
             if results['tracks']['items']:
                 st.session_state.current_tracks = results['tracks']['items']
-                # שמירה להיסטוריה
                 st.session_state.playlist_history.append({
-                    'name': user_name,
                     'genre': selected_genre,
+                    'vibe': selected_vibe,
                     'tracks': results['tracks']['items']
                 })
-                st.balloons()
             else:
-                st.error("לא מצאנו התאמה מדויקת, נסה לשנות מעט את הבחירה.")
+                st.error("No tracks found.")
+    else:
+        st.error("Connection Error.")
 
-# תצוגת התוצאות (נשמרת גם אחרי גלישה)
+# תצוגת שירים
 if st.session_state.current_tracks:
-    st.markdown(f"### הפסקול הנוכחי שלך:")
+    st.markdown("<br><h2 style='letter-spacing:-1px;'>Current Selection</h2>", unsafe_allow_html=True)
+    
     for track in st.session_state.current_tracks:
-        with st.markdown(f'<div class="track-card">', unsafe_allow_html=True):
-            c1, c2 = st.columns([1, 5])
-            with c1:
-                st.image(track['album']['images'][0]['url'], width=100)
-            with c2:
-                st.markdown(f"#### {track['name']}")
-                st.markdown(f"**{track['artists'][0]['name']}**")
-                st.markdown(f'<a href="{track["external_urls"]["spotify"]}" target="_blank" class="spotify-link">פתח בספוטיפיי ➜</a>', unsafe_allow_html=True)
-                
-                preview = track.get('preview_url')
-                if preview:
-                    st.audio(preview)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style="background:rgba(255,255,255,0.03); padding:20px; border-radius:20px; margin-bottom:15px; border:1px solid rgba(255,255,255,0.05);">
+                <div style="display:flex; align-items:center; gap:25px;">
+                    <img src="{track['album']['images'][0]['url']}" width="120" style="border-radius:15px; box-shadow:0 10px 20px rgba(0,0,0,0.4);">
+                    <div style="flex-grow:1;">
+                        <div class="artist-name">{track['artists'][0]['name']}</div>
+                        <div class="track-name">{track['name']}</div>
+                        <a href="{track['external_urls']['spotify']}" target="_blank" style="color:#1DB954; text-decoration:none; font-weight:700; font-size:14px;">LISTEN ON SPOTIFY →</a>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        preview = track.get('preview_url')
+        if preview:
+            st.audio(preview)
