@@ -1,243 +1,184 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Music Hub</title>
-    <style>
-        :root {
-            --primary-color: #1db954;
-            --bg-dark: #121212;
-            --card-bg: #1e1e1e;
-            --text-main: #ffffff;
-            --text-dim: #b3b3b3;
-        }
+import streamlit as st
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            margin: 0;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            transition: all 0.3s ease;
-        }
+# --- 1. הגדרות דף בסיסיות ---
+st.set_page_config(page_title="VibeLab Global Ultra", page_icon="🎧", layout="centered")
 
-        /* בורר שפות בולט בצד */
-        #lang-switcher {
-            position: fixed;
-            top: 30px;
-            right: 30px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            z-index: 1000;
-        }
+# אתחול שפה (ברירת מחדל אנגלית)
+if 'lang' not in st.session_state: st.session_state.lang = 'EN'
+if 'tracks' not in st.session_state: st.session_state.tracks = []
 
-        .lang-btn {
-            background: rgba(29, 185, 84, 0.2);
-            color: white;
-            border: 1px solid var(--primary-color);
-            padding: 10px 18px;
-            border-radius: 30px;
-            cursor: pointer;
-            font-weight: 600;
-            backdrop-filter: blur(5px);
-            transition: all 0.2s;
-        }
-
-        .lang-btn:hover, .lang-btn.active {
-            background: var(--primary-color);
-            box-shadow: 0 0 15px var(--primary-color);
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 60px 20px;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 50px;
-        }
-
-        h1 { font-size: 3rem; margin-bottom: 10px; }
-        .update-status { color: var(--primary-color); font-size: 0.9rem; margin-bottom: 20px; }
-
-        /* מבנה הגריד */
-        .section-wrapper { margin-bottom: 60px; }
-        .genre-group { margin-bottom: 30px; }
-        .genre-name {
-            font-size: 1.5rem;
-            border-left: 4px solid var(--primary-color);
-            padding-left: 15px;
-            margin-bottom: 20px;
-            color: var(--text-main);
-        }
-
-        .artists-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 20px;
-        }
-
-        .artist-card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            border: 1px solid transparent;
-            transition: all 0.3s;
-        }
-
-        .artist-card:hover {
-            border-color: var(--primary-color);
-            transform: translateY(-5px);
-            background: #252525;
-        }
-
-        .artist-name { display: block; font-size: 1.1rem; font-weight: bold; margin-bottom: 5px; }
-        .sub-type { color: var(--text-dim); font-size: 0.85rem; }
-
-        /* התאמת RTL */
-        body.rtl { direction: rtl; }
-        body.rtl .genre-name { border-left: none; border-right: 4px solid var(--primary-color); padding-left: 0; padding-right: 15px; }
-        body.rtl #lang-switcher { right: auto; left: 30px; }
-
-        /* אנימציית טעינה לעדכון אוטומטי */
-        .loading-bar {
-            height: 3px;
-            width: 0%;
-            background: var(--primary-color);
-            position: fixed;
-            top: 0;
-            left: 0;
-            transition: width 0.5s;
-        }
-    </style>
-</head>
-<body class="ltr">
-
-    <div class="loading-bar" id="loader"></div>
-
-    <div id="lang-switcher">
-        <button class="lang-btn active" id="btn-en" onclick="changeLang('en')">English</button>
-        <button class="lang-btn" id="btn-he" onclick="changeLang('he')">עברית</button>
-        <button class="lang-btn" id="btn-ru" onclick="changeLang('ru')">Русский</button>
-        <button class="lang-btn" id="btn-ar" onclick="changeLang('ar')">العربية</button>
-    </div>
-
-    <div class="container">
-        <header>
-            <h1 id="ui-title">Music Explorer</h1>
-            <div class="update-status" id="status">Syncing with global charts...</div>
-        </header>
-
-        <div id="content-area">
-            </div>
-    </div>
-
-    <script>
-        const library = {
-            en: {
-                label: "Global Hits",
-                sections: [
-                    { genre: "Rock & Grunge", artists: ["Nirvana", "Arctic Monkeys", "Led Zeppelin", "Radiohead"] },
-                    { genre: "Pop & Synth", artists: ["Harry Styles", "Billie Eilish", "The Weeknd", "Olivia Rodrigo"] },
-                    { genre: "Hip-Hop / Rap", artists: ["Kendrick Lamar", "Drake", "Eminem", "Travis Scott"] },
-                    { genre: "Jazz & Blues", artists: ["Miles Davis", "B.B. King", "John Coltrane"] }
-                ]
+# --- 2. מילון נתונים (אנגלית, עברית, רוסית, ערבית) ---
+DATA = {
+    'EN': {
+        'title': 'VIBELAB',
+        'subtitle': 'The Global AI Music Curator',
+        'name': 'Your Name',
+        'genre': 'Select Genre',
+        'vibe': 'Current Vibe',
+        'artist': 'Choose Artist',
+        'btn': 'GET MY MUSIC ⚡',
+        'genres': {
+            "Pop/Rock": {
+                "Party": ["Taylor Swift", "Queen", "Dua Lipa"],
+                "Chill": ["Billie Eilish", "Coldplay", "Lana Del Rey"],
+                "Gym": ["Linkin Park", "Imagine Dragons", "The Weeknd"]
             },
-            he: {
-                label: "מוזיקה ישראלית",
-                sections: [
-                    { genre: "ים תיכוני", artists: ["אייל גולן", "פאר טסי", "עדן חסון", "אושר כהן"] },
-                    { genre: "רוק ישראלי", artists: ["היהודים", "מוניקה סקס", "ברי סחרוף", "שלום חנוך"] },
-                    { genre: "היפ הופ מקומי", artists: ["טונה", "רביד פלוטניק", "זיקיי", "ג'ימבו ג'יי"] },
-                    { genre: "פופ ואינדי", artists: ["נועה קירל", "נגה ארז", "מרגי", "יסמין מועלם"] }
-                ]
-            },
-            ru: {
-                label: "Русская Музыка",
-                sections: [
-                    { genre: "Russian Rock", artists: ["Kino", "Bi-2", "DDT", "Splin"] },
-                    { genre: "Modern Pop", artists: ["Zivert", "Little Big", "Niletto", "Morgenshtern"] },
-                    { genre: "Chanson / Folk", artists: ["Mikhail Krug", "Lyube", "Pelageya"] }
-                ]
-            },
-            ar: {
-                label: "موسيقى عربية",
-                sections: [
-                    { genre: "Tarab & Classic", artists: ["Umm Kulthum", "Abdel Halim Hafez", "Fairuz"] },
-                    { genre: "Arabic Pop", artists: ["Amr Diab", "Nancy Ajram", "Elissa", "Tamer Hosny"] },
-                    { genre: "Alternative Arabic", artists: ["Mashrou' Leila", "Cairokee", "JadaL"] }
-                ]
+            "Hip Hop": {
+                "Party": ["Drake", "Travis Scott", "Cardi B"],
+                "Chill": ["Kendrick Lamar", "Post Malone", "J. Cole"],
+                "Gym": ["Eminem", "Kanye West", "21 Savage"]
             }
-        };
-
-        let currentLang = 'en';
-
-        function render() {
-            const area = document.getElementById('content-area');
-            const status = document.getElementById('status');
-            area.innerHTML = '';
-            
-            // סדר הצגה: אנגלית -> עברית -> רוסית -> ערבית
-            const order = ['en', 'he', 'ru', 'ar'];
-            
-            order.forEach(langKey => {
-                const data = library[langKey];
-                const sectionHtml = `
-                    <div class="section-wrapper">
-                        <h2 style="color: var(--primary-color); border-bottom: 1px solid #333; padding-bottom: 10px;">${data.label}</h2>
-                        ${data.sections.map(sec => `
-                            <div class="genre-group">
-                                <h3 class="genre-name">${sec.genre}</h3>
-                                <div class="artists-grid">
-                                    ${sec.artists.map(name => `
-                                        <div class="artist-card">
-                                            <span class="artist-name">${name}</span>
-                                            <span class="sub-type">${sec.genre} Artist</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                area.innerHTML += sectionHtml;
-            });
-
-            status.innerText = `Last updated: ${new Date().toLocaleTimeString()} (Auto-sync active)`;
         }
-
-        function changeLang(lang) {
-            currentLang = lang;
-            document.body.className = (lang === 'he' || lang === 'ar') ? 'rtl' : 'ltr';
-            
-            // עדכון כפתורים
-            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`btn-${lang}`).classList.add('active');
-
-            // אפקט טעינה
-            const loader = document.getElementById('loader');
-            loader.style.width = '100%';
-            setTimeout(() => {
-                render();
-                loader.style.width = '0%';
-            }, 400);
+    },
+    'HE': {
+        'title': 'VIBELAB',
+        'subtitle': 'אוצר המוזיקה הבינלאומי',
+        'name': 'השם שלך',
+        'genre': 'בחר ז\'אנר',
+        'vibe': 'מה הוויב?',
+        'artist': 'בחר זמר/ת',
+        'btn': 'תביא לי מוזיקה ⚡',
+        'genres': {
+            "מזרחית": {
+                "מסיבה": ["אייל גולן", "עומר אדם", "אושר כהן", "ליאור נרקיס"],
+                "רגוע": ["ישי ריבו", "פאר טסי", "עדן חסון", "איתי לוי"],
+                "כושר": ["שרק", "נס וסטילה", "אושר כהן"]
+            },
+            "ישראלי/פופ": {
+                "מסיבה": ["נועה קירל", "סטטיק", "אנה זק"],
+                "רגוע": ["חנן בן ארי", "עידן רייכל", "אביתר בנאי"],
+                "כושר": ["טונה", "רביד פלוטניק", "התקווה 6"]
+            }
         }
+    },
+    'RU': {
+        'title': 'VIBELAB',
+        'subtitle': 'Твой музыкальный гид',
+        'name': 'Ваше имя',
+        'genre': 'Жанр',
+        'vibe': 'Настроение',
+        'artist': 'Артист',
+        'btn': 'ПОЕХАЛИ ⚡',
+        'genres': {
+            "Russian Pop": {
+                "Вечеринка": ["Zivert", "Artik & Asti", "Jony"],
+                "Релакс": ["HammAli & Navai", "Мот"],
+                "Спорт": ["Niletto", "Morgenshtern"]
+            }
+        }
+    },
+    'AR': {
+        'title': 'VIBELAB',
+        'subtitle': 'تجربة الموسيقى الذكية',
+        'name': 'الاسم',
+        'genre': 'النوع',
+        'vibe': 'الجو العام',
+        'artist': 'الفنان',
+        'btn': 'ابدأ الموسيقى ⚡',
+        'genres': {
+            "Arabic": {
+                "حفلة": ["Amr Diab", "Mohamed Ramadan", "Saad Lamjarred"],
+                "استرخاء": ["Sherine", "Fairuz", "Elissa"],
+                "رياضة": ["Wegz", "Marwan Pablo"]
+            }
+        }
+    }
+}
 
-        // מנגנון עדכון אוטומטי (כל 30 שניות מדמה רענון נתונים)
-        setInterval(() => {
-            const loader = document.getElementById('loader');
-            loader.style.width = '40%';
-            setTimeout(() => {
-                render();
-                loader.style.width = '0%';
-            }, 800);
-        }, 30000);
+# --- 3. עיצוב נקי ללא שגיאות (CSS) ---
+st.markdown("""
+<style>
+    .stApp {
+        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.9)), 
+        url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2000');
+        background-size: cover;
+    }
+    .main-title {
+        color: #1DB954; font-family: 'Inter', sans-serif; font-size: 60px;
+        font-weight: 900; text-align: center; margin-bottom: 0px;
+    }
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 30px; border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+        margin-top: 20px;
+    }
+    label { color: #1DB954 !important; font-weight: bold !important; }
+</style>
+""", unsafe_allow_html=True)
 
-        window.onload = render;
-    </script>
-</body>
-</html>
+# --- 4. חיבור לספוטיפיי ---
+@st.cache_resource
+def connect_spotify():
+    try:
+        return spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+            client_id=st.secrets["CLIENT_ID"].strip(),
+            client_secret=st.secrets["CLIENT_SECRET"].strip()
+        ))
+    except: return None
+
+sp = connect_spotify()
+
+# --- 5. ממשק המשתמש ---
+# כפתורי שפה בראש הדף
+c1, c2, c3, c4 = st.columns(4)
+with c1: 
+    if st.button("🇺🇸 English"): st.session_state.lang = 'EN'
+with c2: 
+    if st.button("🇮🇱 עברית"): st.session_state.lang = 'HE'
+with c3: 
+    if st.button("🇷🇺 Russian"): st.session_state.lang = 'RU'
+with c4: 
+    if st.button("🇸🇦 Arabic"): st.session_state.lang = 'AR'
+
+L = DATA[st.session_state.lang]
+
+st.markdown(f'<h1 class="main-title">{L["title"]}</h1>', unsafe_allow_html=True)
+st.markdown(f'<p style="text-align:center; color:#aaa;">{L["subtitle"]}</p>', unsafe_allow_html=True)
+
+# פאנל בחירה
+with st.container():
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    
+    user_name = st.text_input(L['name'], placeholder="...")
+    
+    col_left, col_right = st.columns(2)
+    with col_left:
+        genre_choice = st.selectbox(L['genre'], list(L['genres'].keys()))
+    with col_right:
+        vibe_choice = st.selectbox(L['vibe'], list(L['genres'][genre_choice].keys()))
+    
+    artist_choice = st.selectbox(L['artist'], L['genres'][genre_choice][vibe_choice])
+    
+    if st.button(L['btn'], use_container_width=True):
+        if not user_name:
+            st.warning("Please enter your name")
+        elif not sp:
+            st.error("Spotify Connection Error")
+        else:
+            with st.spinner('Syncing...'):
+                try:
+                    res = sp.search(q=f"artist:{artist_choice}", limit=12, type='track')
+                    if res and res['tracks']['items']:
+                        st.session_state.tracks = res['tracks']['items']
+                        st.balloons()
+                except:
+                    st.error("Spotify is overwhelmed. Please wait 10 seconds.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 6. תצוגת תוצאות ---
+if st.session_state.tracks:
+    st.write(f"### {user_name}'s Playlist ({vibe_choice})")
+    for t in st.session_state.tracks:
+        st.markdown(f"""
+        <div style="background:rgba(0,0,0,0.6); padding:15px; border-radius:15px; margin-bottom:10px; display:flex; align-items:center; gap:15px; border-left:4px solid #1DB954;">
+            <img src="{t['album']['images'][0]['url']}" width="60" style="border-radius:10px;">
+            <div style="flex-grow:1;">
+                <div style="color:white; font-weight:bold;">{t['name']}</div>
+                <div style="color:#1DB954; font-size:0.8rem;">{t['artists'][0]['name']}</div>
+            </div>
+            <a href="{t['external_urls']['spotify']}" target="_blank" style="background:#1DB954; color:white; padding:8px 15px; border-radius:50px; text-decoration:none; font-size:0.8rem; font-weight:bold;">PLAY</a>
+        </div>
+        """, unsafe_allow_html=True)
