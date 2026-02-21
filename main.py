@@ -2,113 +2,144 @@ import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-# הגדרות דף
-st.set_page_config(page_title="VibeTune Pro", page_icon="🎵", layout="wide")
+# הגדרות דף ברמה הגבוהה ביותר
+st.set_page_config(page_title="VibeLab | Personal Soundtrack", page_icon="🎧", layout="wide")
 
-# עיצוב UI יוקרתי, בהיר וקריא
+# אתחול Session State לשמירת היסטוריית פלייליסטים (כדי שלא ייעלמו)
+if 'playlist_history' not in st.session_state:
+    st.session_state.playlist_history = []
+if 'current_tracks' not in st.session_state:
+    st.session_state.current_tracks = []
+
+# עיצוב CSS יוקרתי (Dark Mode, פונטים של גוגל, Glassmorphism)
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;700;800&display=swap" rel="stylesheet">
 <style>
+    * { font-family: 'Assistant', sans-serif; }
     .stApp {
-        background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), 
-                    url('https://images.unsplash.com/photo-1493225255756-d9584f8606e9?auto=format&fit=crop&w=1920&q=80');
-        background-size: cover;
-        background-attachment: fixed;
+        background: radial-gradient(circle at top right, #1e1e2e, #111119);
+        color: #ffffff;
     }
-    .main-container {
-        background: rgba(255, 255, 255, 0.95);
+    .glass-header {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(15px);
         padding: 40px;
-        border-radius: 25px;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-        margin-top: 20px;
+        border-radius: 30px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center;
+        margin-bottom: 30px;
     }
-    h1, h2, h3, p, label {
-        color: #1a1a1a !important; /* טקסט כהה וברור */
-        font-weight: bold !important;
-    }
-    .song-card {
-        background: white;
-        border-radius: 15px;
+    .track-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 20px;
         padding: 20px;
-        margin-bottom: 20px;
-        border-left: 10px solid #1DB954;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        gap: 20px;
+        margin-bottom: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .track-card:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: scale(1.02);
+        border-color: #1DB954;
+    }
+    .stButton>button {
+        background: linear-gradient(90deg, #1DB954, #19e68c);
+        color: black !important;
+        font-weight: 800;
+        border-radius: 50px;
+        padding: 15px 40px;
+        border: none;
+        width: 100%;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        box-shadow: 0 0 25px rgba(29, 185, 84, 0.4);
+        transform: translateY(-2px);
     }
     .spotify-link {
-        background-color: #1DB954;
-        color: white !important;
-        padding: 10px 20px;
-        border-radius: 50px;
+        color: #1DB954 !important;
         text-decoration: none;
-        display: inline-block;
-        font-size: 14px;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+    /* התאמתSidebar */
+    section[data-testid="stSidebar"] {
+        background-color: rgba(0, 0, 0, 0.3);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# פונקציית חיבור לספוטיפיי
+# חיבור לספוטיפיי
 @st.cache_resource
-def init_spotify():
+def connect_spotify():
     try:
         cid = st.secrets["CLIENT_ID"].strip()
         csec = st.secrets["CLIENT_SECRET"].strip()
         return spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=cid, client_secret=csec))
-    except Exception as e:
+    except:
         return None
 
-sp = init_spotify()
+sp = connect_spotify()
 
-# תוכן האתר בתוך מיכל בהיר
-with st.container():
-    st.markdown('<div class="main-container">', unsafe_allow_html=True)
-    st.markdown('<h1 style="text-align: center; font-size: 50px;">🎶 VibeTune Pro</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center;">הפלייליסט המושלם מחכה לך כאן</p>', unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        name = st.text_input("איך לקרוא לך?", "מנדי")
-    with col2:
-        genre = st.selectbox("בחר סגנון מוזיקה", 
-                            ["Rock", "Pop", "Hip Hop", "Metal", "Electronic", "Jazz", "R&B", "Israeli", "Classic"])
-    with col3:
-        mood = st.selectbox("מה הווייב שלך?", 
-                           ["Energetic", "Relaxed", "Happy", "Dark", "Party", "Focus"])
+# סרגל צד - היסטוריית פלייליסטים
+with st.sidebar:
+    st.markdown("### 🕒 היסטוריית פלייליסטים")
+    if st.session_state.playlist_history:
+        for i, entry in enumerate(reversed(st.session_state.playlist_history)):
+            if st.button(f"🎼 {entry['name']} - {entry['genre']}", key=f"hist_{i}"):
+                st.session_state.current_tracks = entry['tracks']
+    else:
+        st.write("כאן יופיעו הפלייליסטים הקודמים שלך")
 
-    generate_btn = st.button("🚀 צור לי פלייליסט מקצועי")
-    st.markdown('</div>', unsafe_allow_html=True)
+# תוכן ראשי
+st.markdown('<div class="glass-header">', unsafe_allow_html=True)
+st.markdown('<h1 style="font-size: 3.5rem; margin-bottom: 0;">VibeLab</h1>', unsafe_allow_html=True)
+st.markdown('<p style="font-size: 1.2rem; opacity: 0.8;">הופכים את הרגש שלך למוזיקה</p>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-if generate_btn:
-    if sp:
-        st.balloons()
-        st.markdown(f"<h2 style='color: white !important; text-shadow: 2px 2px 4px #000;'>✨ הפלייליסט של {name}:</h2>", unsafe_allow_html=True)
-        
-        # בניית שאילתת חיפוש
-        query = f"genre:{genre} {mood}"
-        try:
-            results = sp.search(q=query, limit=10, type='track')
+# אזור הקלט
+col1, col2, col3 = st.columns([1, 1, 1])
+with col1:
+    user_name = st.text_input("איך לקרוא לך?", placeholder="למשל: מנדי")
+with col2:
+    selected_genre = st.selectbox("סגנון מוזיקלי", 
+                                ["Rock", "Techno", "Hip Hop", "Indie", "Israeli", "Classic Rock", "Jazz", "Metal", "Blues"])
+with col3:
+    selected_vibe = st.selectbox("מה האווירה?", 
+                                ["Late Night", "Gym Flow", "Work Focus", "Party Mode", "Deep Chill", "Morning Vibes"])
+
+if st.button("צור את החוויה שלי ✨"):
+    if sp and user_name:
+        with st.spinner('מזקקים את הצלילים המושלמים...'):
+            q = f"genre:{selected_genre} {selected_vibe}"
+            results = sp.search(q=q, limit=10, type='track')
             
             if results['tracks']['items']:
-                for track in results['tracks']['items']:
-                    # כרטיסיית שיר מעוצבת ובהירה
-                    st.markdown(f"""
-                    <div class="song-card">
-                        <img src="{track['album']['images'][0]['url']}" width="100" style="border-radius: 8px;">
-                        <div style="flex-grow: 1;">
-                            <h3 style="margin:0;">{track['name']}</h3>
-                            <p style="margin:0; color: #666 !important;">{track['artists'][0]['name']}</p>
-                            <a href="{track['external_urls']['spotify']}" target="_blank" class="spotify-link">האזן בספוטיפיי 🎧</a>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # השמעת דגימה במידה וקיימת
-                    if track.get('preview_url'):
-                        st.audio(track['preview_url'])
+                st.session_state.current_tracks = results['tracks']['items']
+                # שמירה להיסטוריה
+                st.session_state.playlist_history.append({
+                    'name': user_name,
+                    'genre': selected_genre,
+                    'tracks': results['tracks']['items']
+                })
+                st.balloons()
             else:
-                st.warning("לא מצאנו שירים שמתאימים בדיוק לשילוב הזה. נסה שילוב אחר!")
-        except Exception as e:
-            st.error("הייתה שגיאה בתקשורת עם ספוטיפיי. נסה שוב בעוד רגע.")
-    else:
-        st.error("חסרים מפתחות גישה (Secrets). וודא שהגדרת אותם ב-Streamlit.")
+                st.error("לא מצאנו התאמה מדויקת, נסה לשנות מעט את הבחירה.")
+
+# תצוגת התוצאות (נשמרת גם אחרי גלישה)
+if st.session_state.current_tracks:
+    st.markdown(f"### הפסקול הנוכחי שלך:")
+    for track in st.session_state.current_tracks:
+        with st.markdown(f'<div class="track-card">', unsafe_allow_html=True):
+            c1, c2 = st.columns([1, 5])
+            with c1:
+                st.image(track['album']['images'][0]['url'], width=100)
+            with c2:
+                st.markdown(f"#### {track['name']}")
+                st.markdown(f"**{track['artists'][0]['name']}**")
+                st.markdown(f'<a href="{track["external_urls"]["spotify"]}" target="_blank" class="spotify-link">פתח בספוטיפיי ➜</a>', unsafe_allow_html=True)
+                
+                preview = track.get('preview_url')
+                if preview:
+                    st.audio(preview)
+        st.markdown('</div>', unsafe_allow_html=True)
