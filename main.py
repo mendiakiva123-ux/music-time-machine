@@ -1,194 +1,243 @@
-import streamlit as st
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
-import time
-
-# --- 1. CONFIG ---
-st.set_page_config(page_title="VibeLab Global", page_icon="🎧", layout="centered")
-
-if 'lang' not in st.session_state: st.session_state.lang = 'EN'
-if 'tracks' not in st.session_state: st.session_state.tracks = []
-
-# --- 2. MULTI-LANGUAGE & VIBE ENGINE ---
-# המבנה עכשיו מחולק לפי שפה -> ז'אנר -> אווירה -> אמנים
-DATA = {
-    'EN': {
-        'title': 'VIBELAB',
-        'subtitle': 'SMART MUSIC EXPERIENCE',
-        'name_label': 'Name',
-        'genre_label': 'Genre',
-        'vibe_label': 'What is your vibe?',
-        'artist_label': 'Curated Artists',
-        'btn': 'GENERATE VIBE ⚡',
-        'vibes': ["Party Mode", "Chill & Relax", "Gym Energy"],
-        'genres': {
-            "Pop": {
-                "Party Mode": ["Dua Lipa", "Justin Bieber", "Katy Perry"],
-                "Chill & Relax": ["Billie Eilish", "Lana Del Rey", "Olivia Rodrigo"],
-                "Gym Energy": ["The Weeknd", "Rihanna", "Ariana Grande"]
-            },
-            "Rock": {
-                "Party Mode": ["Queen", "Bon Jovi", "AC/DC"],
-                "Chill & Relax": ["Pink Floyd", "Radiohead", "Coldplay"],
-                "Gym Energy": ["Linkin Park", "Imagine Dragons", "Foo Fighters"]
-            }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Music Hub</title>
+    <style>
+        :root {
+            --primary-color: #1db954;
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #ffffff;
+            --text-dim: #b3b3b3;
         }
-    },
-    'HE': {
-        'title': 'וייב-לאב',
-        'subtitle': 'חווית מוזיקה חכמה',
-        'name_label': 'שם',
-        'genre_label': 'בחר ז\'אנר',
-        'vibe_label': 'מה הוויב שלך?',
-        'artist_label': 'אמנים מומלצים לוויב הזה',
-        'btn': 'צור פלייליסט ⚡',
-        'vibes': ["מסיבה וארנבי", "רגוע ורומנטי", "אנרגיה לחדר כושר"],
-        'genres': {
-            "מזרחית": {
-                "מסיבה וארנבי": ["אייל גולן", "עומר אדם", "אושר כהן", "ליאור נרקיס"],
-                "רגוע ורומנטי": ["ישי ריבו", "פאר טסי", "עדן חסון", "איתי לוי"],
-                "אנרגיה לחדר כושר": ["סטטיק", "נס וסטילה", "שרק", "אושר כהן"]
-            },
-            "ישראלי": {
-                "מסיבה וארנבי": ["נועה קירל", "אנה זק", "מרגי"],
-                "רגוע ורומנטי": ["חנן בן ארי", "אביתר בנאי", "עידן רייכל"],
-                "אנרגיה לחדר כושר": ["טונה", "רביד פלוטניק", "התקווה 6"]
-            }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            transition: all 0.3s ease;
         }
-    },
-    'RU': {
-        'title': 'VIBELAB',
-        'subtitle': 'УМНЫЙ МУЗЫКАЛЬНЫЙ ОПЫТ',
-        'name_label': 'Имя',
-        'genre_label': 'Жанр',
-        'vibe_label': 'Твое настроение?',
-        'artist_label': 'Рекомендуемые артисты',
-        'btn': 'СОЗДАТЬ ⚡',
-        'vibes': ["Вечеринка", "Релакс", "Спорт"],
-        'genres': {
-            "Pop RU": {
-                "Вечеринка": ["Zivert", "Artik & Asti", "Jony"],
-                "Релакс": ["HammAli & Navai", "Мот"],
-                "Спорт": ["Niletto", "Morgenshtern"]
-            }
+
+        /* בורר שפות בולט בצד */
+        #lang-switcher {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1000;
         }
-    },
-    'AR': {
-        'title': 'VIBELAB',
-        'subtitle': 'تجربة الموسيقى الذكية',
-        'name_label': 'الاسم',
-        'genre_label': 'النوع',
-        'vibe_label': 'ما هو الجو؟',
-        'artist_label': 'الفنانين المقترحين',
-        'btn': 'انطلق ⚡',
-        'vibes': ["حفلة", "استرخاء", "رياضة"],
-        'genres': {
-            "Arabic": {
-                "حفلة": ["Amr Diab", "Mohamed Ramadan", "Saad Lamjarred"],
-                "استرخاء": ["Sherine", "Fairuz", "Elissa"],
-                "رياضة": ["Wegz", "Marwan Pablo"]
-            }
+
+        .lang-btn {
+            background: rgba(29, 185, 84, 0.2);
+            color: white;
+            border: 1px solid var(--primary-color);
+            padding: 10px 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            backdrop-filter: blur(5px);
+            transition: all 0.2s;
         }
-    }
-}
 
-# --- 3. UI DESIGN ---
-st.markdown(f"""
-<style>
-    .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.9)), 
-        url('https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1920&q=80');
-        background-size: cover;
-    }}
-    .main-title {{
-        font-family: 'Inter', sans-serif;
-        font-size: clamp(40px, 8vw, 65px);
-        color: #1DB954;
-        text-align: center;
-        text-shadow: 0 0 20px rgba(29, 185, 84, 0.4);
-        margin-bottom: 0px;
-    }}
-    .glass-box {{
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(20px);
-        padding: 25px;
-        border-radius: 20px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        margin-top: 20px;
-    }}
-    label {{ color: #1DB954 !important; font-weight: 900 !important; }}
-</style>
-""", unsafe_allow_html=True)
+        .lang-btn:hover, .lang-btn.active {
+            background: var(--primary-color);
+            box-shadow: 0 0 15px var(--primary-color);
+        }
 
-# --- 4. SPOTIFY ---
-@st.cache_resource
-def get_sp():
-    try:
-        return spotipy.Spotify(auth_manager=SpotifyClientCredentials(
-            client_id=st.secrets["CLIENT_ID"].strip(),
-            client_secret=st.secrets["CLIENT_SECRET"].strip()
-        ))
-    except: return None
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
 
-sp = get_sp()
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
 
-# --- 5. INTERFACE ---
-# Language selection - Clean Buttons
-st.write("")
-lc1, lc2, lc3, lc4 = st.columns(4)
-with lc1: 
-    if st.button("🇺🇸 EN"): st.session_state.lang = 'EN'
-with lc2: 
-    if st.button("🇮🇱 HE"): st.session_state.lang = 'HE'
-with lc3: 
-    if st.button("🇷🇺 RU"): st.session_state.lang = 'RU'
-with lc4: 
-    if st.button("🇸🇦 AR"): st.session_state.lang = 'AR'
+        h1 { font-size: 3rem; margin-bottom: 10px; }
+        .update-status { color: var(--primary-color); font-size: 0.9rem; margin-bottom: 20px; }
 
-L = DATA[st.session_state.lang]
+        /* מבנה הגריד */
+        .section-wrapper { margin-bottom: 60px; }
+        .genre-group { margin-bottom: 30px; }
+        .genre-name {
+            font-size: 1.5rem;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 15px;
+            margin-bottom: 20px;
+            color: var(--text-main);
+        }
 
-st.markdown(f'<h1 class="main-title">{L["title"]}</h1>', unsafe_allow_html=True)
-st.markdown(f'<p style="text-align:center; color:#aaa;">{L["subtitle"]}</p>', unsafe_allow_html=True)
+        .artists-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+        }
 
-st.markdown('<div class="glass-box">', unsafe_allow_html=True)
-u_name = st.text_input(L['name_label'], placeholder="...")
+        .artist-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+        }
 
-# פילטר 1: ז'אנר
-u_genre = st.selectbox(L['genre_label'], list(L['genres'].keys()))
+        .artist-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-5px);
+            background: #252525;
+        }
 
-# פילטר 2: וויב (מותאם לזמרים)
-u_vibe = st.selectbox(L['vibe_label'], list(L['genres'][u_genre].keys()))
+        .artist-name { display: block; font-size: 1.1rem; font-weight: bold; margin-bottom: 5px; }
+        .sub-type { color: var(--text-dim); font-size: 0.85rem; }
 
-# פילטר 3: זמרים (משתנה לפי הז'אנר והוויב שנבחרו!)
-available_artists = L['genres'][u_genre][u_vibe]
-u_artist = st.selectbox(L['artist_label'], available_artists)
+        /* התאמת RTL */
+        body.rtl { direction: rtl; }
+        body.rtl .genre-name { border-left: none; border-right: 4px solid var(--primary-color); padding-left: 0; padding-right: 15px; }
+        body.rtl #lang-switcher { right: auto; left: 30px; }
 
-if st.button(L['btn'], use_container_width=True):
-    if not u_name:
-        st.error("Enter Name")
-    else:
-        with st.spinner('Building...'):
-            try:
-                # חיפוש חכם בספוטיפיי לפי האמן הנבחר
-                res = sp.search(q=f"artist:{u_artist}", limit=10, type='track')
-                if res['tracks']['items']:
-                    st.session_state.tracks = res['tracks']['items']
-                    st.balloons()
-            except:
-                st.error("Spotify is busy. Wait 5 seconds.")
-st.markdown('</div>', unsafe_allow_html=True)
+        /* אנימציית טעינה לעדכון אוטומטי */
+        .loading-bar {
+            height: 3px;
+            width: 0%;
+            background: var(--primary-color);
+            position: fixed;
+            top: 0;
+            left: 0;
+            transition: width 0.5s;
+        }
+    </style>
+</head>
+<body class="ltr">
 
-# --- 6. RESULTS ---
-if st.session_state.tracks:
-    st.write(f"### For {u_name} | {u_vibe}:")
-    for t in st.session_state.tracks:
-        st.markdown(f"""
-        <div style="background:rgba(0,0,0,0.6); padding:12px; border-radius:15px; margin-bottom:10px; display:flex; align-items:center; gap:15px; border-left:4px solid #1DB954;">
-            <img src="{t['album']['images'][0]['url']}" width="55" style="border-radius:8px;">
-            <div style="flex-grow:1;">
-                <div style="color:white; font-weight:bold; font-size:1rem;">{t['name']}</div>
-                <div style="color:#1DB954; font-size:0.8rem;">{t['artists'][0]['name']}</div>
+    <div class="loading-bar" id="loader"></div>
+
+    <div id="lang-switcher">
+        <button class="lang-btn active" id="btn-en" onclick="changeLang('en')">English</button>
+        <button class="lang-btn" id="btn-he" onclick="changeLang('he')">עברית</button>
+        <button class="lang-btn" id="btn-ru" onclick="changeLang('ru')">Русский</button>
+        <button class="lang-btn" id="btn-ar" onclick="changeLang('ar')">العربية</button>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1 id="ui-title">Music Explorer</h1>
+            <div class="update-status" id="status">Syncing with global charts...</div>
+        </header>
+
+        <div id="content-area">
             </div>
-            <a href="{t['external_urls']['spotify']}" target="_blank" style="background:#1DB954; color:white; padding:8px 12px; border-radius:50px; text-decoration:none; font-size:0.7rem; font-weight:bold;">PLAY</a>
-        </div>
-        """, unsafe_allow_html=True)
+    </div>
+
+    <script>
+        const library = {
+            en: {
+                label: "Global Hits",
+                sections: [
+                    { genre: "Rock & Grunge", artists: ["Nirvana", "Arctic Monkeys", "Led Zeppelin", "Radiohead"] },
+                    { genre: "Pop & Synth", artists: ["Harry Styles", "Billie Eilish", "The Weeknd", "Olivia Rodrigo"] },
+                    { genre: "Hip-Hop / Rap", artists: ["Kendrick Lamar", "Drake", "Eminem", "Travis Scott"] },
+                    { genre: "Jazz & Blues", artists: ["Miles Davis", "B.B. King", "John Coltrane"] }
+                ]
+            },
+            he: {
+                label: "מוזיקה ישראלית",
+                sections: [
+                    { genre: "ים תיכוני", artists: ["אייל גולן", "פאר טסי", "עדן חסון", "אושר כהן"] },
+                    { genre: "רוק ישראלי", artists: ["היהודים", "מוניקה סקס", "ברי סחרוף", "שלום חנוך"] },
+                    { genre: "היפ הופ מקומי", artists: ["טונה", "רביד פלוטניק", "זיקיי", "ג'ימבו ג'יי"] },
+                    { genre: "פופ ואינדי", artists: ["נועה קירל", "נגה ארז", "מרגי", "יסמין מועלם"] }
+                ]
+            },
+            ru: {
+                label: "Русская Музыка",
+                sections: [
+                    { genre: "Russian Rock", artists: ["Kino", "Bi-2", "DDT", "Splin"] },
+                    { genre: "Modern Pop", artists: ["Zivert", "Little Big", "Niletto", "Morgenshtern"] },
+                    { genre: "Chanson / Folk", artists: ["Mikhail Krug", "Lyube", "Pelageya"] }
+                ]
+            },
+            ar: {
+                label: "موسيقى عربية",
+                sections: [
+                    { genre: "Tarab & Classic", artists: ["Umm Kulthum", "Abdel Halim Hafez", "Fairuz"] },
+                    { genre: "Arabic Pop", artists: ["Amr Diab", "Nancy Ajram", "Elissa", "Tamer Hosny"] },
+                    { genre: "Alternative Arabic", artists: ["Mashrou' Leila", "Cairokee", "JadaL"] }
+                ]
+            }
+        };
+
+        let currentLang = 'en';
+
+        function render() {
+            const area = document.getElementById('content-area');
+            const status = document.getElementById('status');
+            area.innerHTML = '';
+            
+            // סדר הצגה: אנגלית -> עברית -> רוסית -> ערבית
+            const order = ['en', 'he', 'ru', 'ar'];
+            
+            order.forEach(langKey => {
+                const data = library[langKey];
+                const sectionHtml = `
+                    <div class="section-wrapper">
+                        <h2 style="color: var(--primary-color); border-bottom: 1px solid #333; padding-bottom: 10px;">${data.label}</h2>
+                        ${data.sections.map(sec => `
+                            <div class="genre-group">
+                                <h3 class="genre-name">${sec.genre}</h3>
+                                <div class="artists-grid">
+                                    ${sec.artists.map(name => `
+                                        <div class="artist-card">
+                                            <span class="artist-name">${name}</span>
+                                            <span class="sub-type">${sec.genre} Artist</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                area.innerHTML += sectionHtml;
+            });
+
+            status.innerText = `Last updated: ${new Date().toLocaleTimeString()} (Auto-sync active)`;
+        }
+
+        function changeLang(lang) {
+            currentLang = lang;
+            document.body.className = (lang === 'he' || lang === 'ar') ? 'rtl' : 'ltr';
+            
+            // עדכון כפתורים
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${lang}`).classList.add('active');
+
+            // אפקט טעינה
+            const loader = document.getElementById('loader');
+            loader.style.width = '100%';
+            setTimeout(() => {
+                render();
+                loader.style.width = '0%';
+            }, 400);
+        }
+
+        // מנגנון עדכון אוטומטי (כל 30 שניות מדמה רענון נתונים)
+        setInterval(() => {
+            const loader = document.getElementById('loader');
+            loader.style.width = '40%';
+            setTimeout(() => {
+                render();
+                loader.style.width = '0%';
+            }, 800);
+        }, 30000);
+
+        window.onload = render;
+    </script>
+</body>
+</html>
