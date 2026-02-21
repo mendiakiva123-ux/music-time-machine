@@ -2,22 +2,21 @@ import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-# --- 1. CONFIG ---
+# --- 1. הגדרות דף ---
 st.set_page_config(page_title="VibeLab Elite", page_icon="🎧", layout="centered")
 
 if 'lang' not in st.session_state: st.session_state.lang = 'EN'
 if 'tracks' not in st.session_state: st.session_state.tracks = []
 
-# --- 2. ELITE DESIGN (100% ERROR-FREE) ---
-# הסרתי את כל יחידות המידה שגרמו ל-SyntaxError בתמונות שלך
-st.markdown("""
+# --- 2. עיצוב חסין (SAFE CSS) ---
+# שימוש במחרוזת גולמית (r"") למניעת שגיאות Syntax
+UI_STYLE = r"""
 <style>
-    .stApp { background-color: #0e1117; }
-    .main-title { color: #1DB954; font-size: 60px; font-weight: 900; text-align: center; margin-bottom: 0px; }
+    .stApp { background-color: #0e1117; color: white; }
+    .main-title { color: #1DB954; font-size: 55px; font-weight: 900; text-align: center; }
     .stButton>button { 
         background-color: #1DB954 !important; color: white !important; 
-        font-weight: bold !important; border-radius: 12px !important; 
-        height: 50px !important; width: 100% !important; border: none !important;
+        font-weight: bold; border-radius: 12px; height: 50px; width: 100%; border: none;
     }
     label { color: #1DB954 !important; font-weight: bold !important; }
     .song-box { 
@@ -26,14 +25,15 @@ st.markdown("""
         display: flex; align-items: center; gap: 15px;
     }
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(UI_STYLE, unsafe_allow_html=True)
 
-# --- 3. DATA ENGINE ---
+# --- 3. נתונים (בלי זמרים) ---
 DATA = {
     'EN': {
         'title': 'VIBELAB', 'sub': 'Premium AI Music Experience',
-        'name': 'Your Name', 'genre': 'Genre', 'vibe': 'Vibe', 'btn': 'GENERATE EXPERIENCE ⚡',
-        'genres': ["Pop", "Hip Hop", "Rock", "Techno", "Jazz"],
+        'name': 'Full Name', 'genre': 'Genre', 'vibe': 'Vibe', 'btn': 'GENERATE VIBE ⚡',
+        'genres': ["Pop", "Rock", "Hip Hop", "Techno", "Jazz"],
         'vibes': ["Party Mode", "Chill & Relax", "Gym Energy", "Deep Focus"]
     },
     'HE': {
@@ -56,9 +56,9 @@ DATA = {
     }
 }
 
-# --- 4. SPOTIFY CONNECTION ---
+# --- 4. חיבור לספוטיפיי ---
 @st.cache_resource
-def init_sp():
+def get_sp():
     try:
         return spotipy.Spotify(auth_manager=SpotifyClientCredentials(
             client_id=st.secrets["CLIENT_ID"].strip(),
@@ -66,52 +66,52 @@ def init_sp():
         ))
     except: return None
 
-sp = init_sp()
+sp = get_sp()
 
-# --- 5. UI LAYOUT ---
-# בחירת שפה - כפתורים נקיים
-cols = st.columns(4)
-langs = [("🇺🇸 EN", "EN"), ("🇮🇱 HE", "HE"), ("🇷🇺 RU", "RU"), ("🇸🇦 AR", "AR")]
-for i, (label, code) in enumerate(langs):
-    if cols[i].button(label):
+# --- 5. ממשק משתמש ---
+# כפתורי שפה (ניקוי המלבנים)
+c_lang = st.columns(4)
+languages = [("🇺🇸 EN", "EN"), ("🇮🇱 HE", "HE"), ("🇷🇺 RU", "RU"), ("🇸🇦 AR", "AR")]
+for i, (label, code) in enumerate(languages):
+    if c_lang[i].button(label):
         st.session_state.lang = code
         st.rerun()
 
 L = DATA[st.session_state.lang]
 
 st.markdown(f'<h1 class="main-title">{L["title"]}</h1>', unsafe_allow_html=True)
-st.write(f"<p style='text-align:center; color:gray;'>{L['sub']}</p>", unsafe_allow_html=True)
+st.write(f"<p style='text-align:center; color:gray; margin-top:-15px;'>{L['sub']}</p>", unsafe_allow_html=True)
 
-# הטופס - ללא מלבנים חוסמים
+# הטופס הראשי
 u_name = st.text_input(L['name'], placeholder="...")
-c1, c2 = st.columns(2)
-with c1:
+col1, col2 = st.columns(2)
+with col1:
     u_genre = st.selectbox(L['genre'], L['genres'])
-with c2:
+with col2:
     u_vibe = st.selectbox(L['vibe'], L['vibes'])
 
 if st.button(L['btn']):
     if not u_name:
-        st.error("Please enter your name")
+        st.warning("Please enter your name")
     elif not sp:
         st.error("Spotify Connection Error")
     else:
         with st.spinner('Syncing...'):
             try:
-                # חיפוש אופטימלי למניעת שגיאת "Spotify is busy"
-                search_query = f"{u_genre} {u_vibe} top hits"
-                res = sp.search(q=search_query, limit=12, type='track')
+                # חיפוש שירים (Tracks) ישיר - הכי יציב
+                search_query = f"{u_genre} {u_vibe} hits"
+                res = sp.search(q=search_query, limit=10, type='track')
                 if res and res['tracks']['items']:
                     st.session_state.tracks = res['tracks']['items']
                     st.balloons()
                 else:
-                    st.warning("No results found. Try another vibe.")
+                    st.warning("No results. Try another vibe.")
             except:
                 st.error("Spotify limit reached. Wait 5 seconds.")
 
-# --- 6. RESULTS ---
+# --- 6. הצגת תוצאות ---
 if st.session_state.tracks:
-    st.write(f"### {u_name}'s Personal Mix:")
+    st.write(f"### {u_name}'s {u_vibe} Selection:")
     for t in st.session_state.tracks:
         st.markdown(f"""
         <div class="song-box">
@@ -120,9 +120,6 @@ if st.session_state.tracks:
                 <div style="color:white; font-weight:bold;">{t['name']}</div>
                 <div style="color:#1DB954; font-size:13px;">{t['artists'][0]['name']}</div>
             </div>
-            <a href="{t['external_urls']['spotify']}" target="_blank" 
-               style="background:#1DB954; color:white; padding:8px 15px; border-radius:20px; text-decoration:none; font-size:12px; font-weight:bold;">
-               LISTEN
-            </a>
+            <a href="{t['external_urls']['spotify']}" target="_blank" style="color:#1DB954; text-decoration:none; font-weight:bold; font-size:13px;">PLAY</a>
         </div>
         """, unsafe_allow_html=True)
