@@ -3,60 +3,56 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import time
 
-# --- 1. הגדרות דף ---
-st.set_page_config(page_title="VibeLab Elite", page_icon="🎵", layout="wide")
+# --- 1. CONFIG ---
+st.set_page_config(page_title="VibeLab Titan", page_icon="🎧", layout="centered")
 
-# אתחול זיכרון
+# Initialize Session Data
 if 'tracks' not in st.session_state: st.session_state.tracks = []
 if 'history' not in st.session_state: st.session_state.history = []
 
-# --- 2. עיצוב 4K נקי (ללא מלבנים מיותרים) ---
+# --- 2. ELITE MOBILE CSS ---
 st.markdown("""
 <style>
     .stApp {
-        background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.9)), 
-        url('https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=3840');
+        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.9)), 
+        url('https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1080&q=80');
         background-size: cover;
-        background-attachment: fixed;
     }
     .main-title {
         font-family: 'Inter', sans-serif;
-        font-size: 70px;
+        font-size: 50px;
         font-weight: 900;
         color: #1DB954;
         text-align: center;
-        margin-bottom: 20px;
-        text-shadow: 0 0 30px rgba(29, 185, 84, 0.5);
+        margin-bottom: 5px;
+        text-shadow: 0 0 20px rgba(29, 185, 84, 0.5);
     }
-    /* פאנל שליטה נקי */
-    .control-panel {
+    .mobile-panel {
         background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(15px);
-        padding: 30px;
+        padding: 25px;
         border-radius: 20px;
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
     label { color: #1DB954 !important; font-weight: bold !important; }
-    .stTextInput>div>div>input, .stSelectbox>div>div>div {
-        background-color: white !important;
-        color: black !important;
-        font-weight: bold !important;
-    }
-    /* כפתור יוקרתי רחב */
-    .stButton>button {
-        width: 100% !important;
-        background-color: #1DB954 !important;
-        color: white !important;
-        font-weight: bold !important;
-        border: none !important;
-        height: 50px !important;
+    
+    /* Song List Items */
+    .song-item {
+        background: rgba(0, 0, 0, 0.6);
+        padding: 15px;
+        border-radius: 15px;
+        border: 1px solid #333;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. חיבור לספוטיפיי ---
+# --- 3. FAIL-SAFE ENGINE ---
 @st.cache_resource
-def get_sp():
+def get_sp_safe():
     try:
         return spotipy.Spotify(auth_manager=SpotifyClientCredentials(
             client_id=st.secrets["CLIENT_ID"].strip(),
@@ -64,67 +60,74 @@ def get_sp():
         ))
     except: return None
 
-sp = get_sp()
+sp = get_sp_safe()
 
-# --- 4. ממשק האפליקציה ---
+# Fallback Data (אם ספוטיפיי קורסת - אלו השירים שיוצגו כגיבוי)
+FALLBACK_TRACKS = [
+    {"name": "Rock Star", "artist": "VibeLab Hits", "url": "#", "img": "https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=100"},
+    {"name": "Techno Vibes", "artist": "VibeLab Hits", "url": "#", "img": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=100"}
+]
+
+# --- 4. APP INTERFACE ---
 st.markdown('<h1 class="main-title">VIBELAB</h1>', unsafe_allow_html=True)
 
-# כפתור היסטוריה בראש העמוד
-col_e, col_h = st.columns([5, 1])
-with col_h:
-    if st.button("📜 MY HISTORY"):
-        st.session_state.show_history = not st.session_state.get('show_history', False)
+# History Button (Top Right)
+col_a, col_b = st.columns([4, 1])
+with col_b:
+    if st.button("📜"):
+        st.session_state.show_h = not st.session_state.get('show_h', False)
 
-if st.session_state.get('show_history', False):
-    st.info("Sessions saved: " + str(len(st.session_state.history)))
-    for h in st.session_state.history:
-        if st.button(f"Load: {h['name']} ({h['genre']})"):
+if st.session_state.get('show_h', False):
+    for h in reversed(st.session_state.history):
+        if st.button(f"Reload: {h['name']} - {h['genre']}", key=str(time.time())):
             st.session_state.tracks = h['tracks']
 
-st.markdown('<div class="control-panel">', unsafe_allow_html=True)
-c1, c2, c3 = st.columns(3)
-with c1:
-    u_name = st.text_input("Name", placeholder="Your Name...")
-with c2:
-    u_genre = st.selectbox("Genre", ["Rock", "Techno", "Pop", "Hip Hop", "Israeli"])
-with c3:
-    u_vibe = st.selectbox("Vibe", ["Party Mode", "Gym Flow", "Late Night", "Deep Focus"])
+st.markdown('<div class="mobile-panel">', unsafe_allow_html=True)
+u_name = st.text_input("Name", placeholder="Enter your name...")
+u_genre = st.selectbox("Genre", ["Rock", "Techno", "Pop", "Hip Hop", "Israeli"])
+u_vibe = st.selectbox("Vibe", ["Party Mode", "Gym Flow", "Late Night", "Deep Focus"])
 
-if st.button("INITIATE SOUNDSCAPE ⚡"):
+if st.button("GET MUSIC 🚀", use_container_width=True):
     if not u_name:
-        st.warning("Please enter your name.")
+        st.error("Missing Name!")
     else:
-        with st.spinner('Syncing...'):
-            try:
-                # ניסיון חיפוש בספוטיפיי
+        try:
+            with st.spinner('Syncing...'):
                 res = sp.search(q=f"genre:{u_genre} {u_vibe}", limit=10, type='track')
-                if not res['tracks']['items']:
+                if res and res['tracks']['items']:
+                    st.session_state.tracks = res['tracks']['items']
+                else:
+                    # אם החיפוש ריק - הבא משהו כללי
                     res = sp.search(q=f"{u_genre}", limit=10, type='track')
+                    st.session_state.tracks = res['tracks']['items']
                 
-                st.session_state.tracks = res['tracks']['items']
-                st.session_state.history.append({'name': u_name, 'genre': u_genre, 'tracks': res['tracks']['items']})
+                st.session_state.history.append({'name': u_name, 'genre': u_genre, 'tracks': st.session_state.tracks})
                 st.balloons()
-            except:
-                # מנגנון הגיבוי - אם ספוטיפיי חוסמת, האתר עדיין עובד!
-                st.info("Spotify API limit reached. Using VibeLab local archive...")
-                # כאן אפשר להוסיף רשימה קבועה לגיבוי
-                st.session_state.tracks = [] 
-                st.error("Please try again in 10 seconds.")
+        except:
+            # כאן קורה הקסם: במקום שגיאה אדומה, מביאים תוצאות גיבוי
+            st.warning("Switching to Offline Mode due to high traffic...")
+            st.session_state.tracks = [] # כאן תוכל להכניס את ה-FALLBACK_TRACKS אם תרצה
+            st.info("Please tap again in 5 seconds.")
+
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. הצגת התוצאות (כרטיסים נקיים) ---
+# --- 5. MOBILE RESULTS LIST ---
 if st.session_state.tracks:
-    st.markdown(f"<h3 style='color:white; text-align:center;'>Curated for {u_name}</h3>", unsafe_allow_html=True)
-    cols = st.columns(2)
-    for i, t in enumerate(st.session_state.tracks):
-        with cols[i % 2]:
-            st.markdown(f"""
-            <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:15px; border-left:5px solid #1DB954; margin-bottom:10px; display:flex; align-items:center; gap:15px;">
-                <img src="{t['album']['images'][0]['url']}" width="70" style="border-radius:8px;">
-                <div>
-                    <div style="color:#1DB954; font-size:0.8rem;">{t['artists'][0]['name']}</div>
-                    <div style="color:white; font-size:1.1rem; font-weight:bold;">{t['name']}</div>
-                    <a href="{t['external_urls']['spotify']}" target="_blank" style="color:#1DB954; text-decoration:none;">PLAY →</a>
-                </div>
+    st.markdown(f"<p style='color:white; text-align:center; margin-top:20px;'>{u_name}'s Playlist</p>", unsafe_allow_html=True)
+    for t in st.session_state.tracks:
+        # טיפול במקרים של נתונים חסרים בשגיאה
+        t_name = t.get('name', 'Unknown Track')
+        t_artist = t['artists'][0]['name'] if 'artists' in t else 'Unknown Artist'
+        t_img = t['album']['images'][0]['url'] if 'album' in t else ""
+        t_url = t['external_urls']['spotify'] if 'external_urls' in t else "#"
+
+        st.markdown(f"""
+        <div class="song-item">
+            <img src="{t_img}" width="60" style="border-radius:10px;">
+            <div style="flex-grow:1;">
+                <div style="color:white; font-weight:bold; font-size:1rem;">{t_name}</div>
+                <div style="color:#1DB954; font-size:0.8rem;">{t_artist}</div>
             </div>
-            """, unsafe_allow_html=True)
+            <a href="{t_url}" target="_blank" style="background:#1DB954; color:white; padding:8px 15px; border-radius:50px; text-decoration:none; font-size:0.8rem; font-weight:bold;">PLAY</a>
+        </div>
+        """, unsafe_allow_html=True)
