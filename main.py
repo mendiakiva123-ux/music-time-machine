@@ -3,116 +3,116 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import random
 import time
-from datetime import datetime
 
-# --- 1. CORE ENGINE & STABILITY ---
-st.set_page_config(page_title="VibeLab Ultra | AI Soundtrack", page_icon="💎", layout="wide")
+# --- 1. PRO CONFIGURATION ---
+st.set_page_config(page_title="VibeLab | Neo-Experience", page_icon="🔥", layout="wide")
 
-# Persistent memory to block Spotify "Rate Limit" errors
+# Persistent memory to prevent crashes
 if 'playlist_history' not in st.session_state:
     st.session_state.playlist_history = []
 if 'current_tracks' not in st.session_state:
     st.session_state.current_tracks = []
-if 'bg_index' not in st.session_state:
-    st.session_state.bg_index = random.randint(0, 3)
+if 'bg_seed' not in st.session_state:
+    st.session_state.bg_seed = random.randint(1, 100)
 
-# Professional background assets
+# Professional Neon Backgrounds
 BGS = [
-    "https://images.unsplash.com/photo-1514525253361-bee8718a74a2?q=80&w=1920",
-    "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=1920",
-    "https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=1920",
-    "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1920"
+    "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1920", # Neon Abstract
+    "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1920", # Cyberpunk Tech
+    "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?q=80&w=1920", # Music Studio
+    "https://images.unsplash.com/photo-1459749411177-042180ce673c?q=80&w=1920"  # Concert Crowd
 ]
+current_bg = BGS[st.session_state.bg_seed % len(BGS)]
 
-# --- 2. LUXURY UI FRAMEWORK (The "Clarity" Fix) ---
+# --- 2. HIGH-END VISUALS (CSS) ---
 st.markdown(f"""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Montserrat:wght@900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Inter:wght@300;700&display=swap" rel="stylesheet">
 <style>
-    /* Prevent text being swallowed by background */
     .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.95)), url('{BGS[st.session_state.bg_index]}');
+        background: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.85)), url('{current_bg}');
         background-size: cover;
         background-attachment: fixed;
     }}
 
-    /* The "Glass Capsule" - Fixes visibility */
-    .glass-container {{
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(25px);
-        padding: 40px;
-        border-radius: 30px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        margin: 20px 0;
-    }}
-
+    /* Neon Title */
     .hero-title {{
-        font-family: 'Montserrat', sans-serif;
-        font-size: clamp(50px, 10vw, 110px);
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(40px, 10vw, 120px);
         text-align: center;
-        background: linear-gradient(to right, #1DB954, #ffffff);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        letter-spacing: -6px;
+        color: #fff;
+        text-shadow: 0 0 10px #1DB954, 0 0 20px #1DB954, 0 0 40px #1DB954;
         margin-bottom: 0;
+        letter-spacing: 10px;
     }}
 
     .hero-subtitle {{
+        font-family: 'Inter', sans-serif;
         text-align: center;
         font-size: 1rem;
-        letter-spacing: 7px;
-        opacity: 0.6;
+        letter-spacing: 5px;
+        color: #1DB954;
         text-transform: uppercase;
-        margin-bottom: 30px;
+        margin-bottom: 50px;
     }}
 
-    /* High-Contrast Inputs */
+    /* Glass Container */
+    .glass-box {{
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 40px;
+        border-radius: 25px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }}
+
+    /* Modern Inputs */
     label {{
-        color: #1DB954 !important;
-        font-weight: 800 !important;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        font-size: 0.9rem !important;
-    }}
-
-    .stTextInput>div>div>input, .stSelectbox>div>div>div {{
-        background-color: white !important;
-        color: black !important;
-        border-radius: 12px !important;
+        color: #fff !important;
         font-weight: 700 !important;
-        height: 55px !important;
+        letter-spacing: 1px;
+    }}
+    
+    .stTextInput>div>div>input, .stSelectbox>div>div>div {{
+        background-color: rgba(0,0,0,0.5) !important;
+        color: #1DB954 !important;
+        border: 1px solid #1DB954 !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
     }}
 
-    /* Result Cards */
+    /* Track Cards - Neon Style */
     .track-card {{
-        background: rgba(255, 255, 255, 0.07);
-        padding: 25px;
+        background: rgba(255, 255, 255, 0.05);
         border-radius: 20px;
-        border-left: 5px solid #1DB954;
-        margin-bottom: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(29, 185, 84, 0.2);
         transition: 0.3s;
     }}
     .track-card:hover {{
-        background: rgba(255, 255, 255, 0.12);
-        transform: translateX(10px);
+        border-color: #1DB954;
+        box-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
+        transform: scale(1.01);
     }}
 
-    /* High-Performance Button */
+    /* Ultimate Button */
     .stButton>button {{
-        background: #1DB954 !important;
-        color: black !important;
+        background: linear-gradient(90deg, #1DB954, #19e68c) !important;
+        color: #000 !important;
         font-weight: 900 !important;
         border-radius: 50px !important;
         padding: 20px !important;
-        font-size: 1.3rem !important;
+        font-size: 1.4rem !important;
+        text-transform: uppercase;
         border: none !important;
-        box-shadow: 0 10px 30px rgba(29, 185, 84, 0.3);
+        box-shadow: 0 10px 30px rgba(29, 185, 84, 0.4) !important;
     }}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. THE "ANTI-BUG" SPOTIFY ENGINE ---
+# --- 3. FAIL-SAFE SPOTIFY ENGINE ---
 @st.cache_resource(show_spinner=False)
-def connect_to_spotify():
+def get_spotify():
     try:
         return spotipy.Spotify(auth_manager=SpotifyClientCredentials(
             client_id=st.secrets["CLIENT_ID"].strip(),
@@ -120,67 +120,67 @@ def connect_to_spotify():
         ))
     except: return None
 
-sp = connect_to_spotify()
+sp = get_spotify()
 
-# --- 4. APP LAYOUT ---
+# --- 4. THE INTERFACE ---
 st.markdown('<h1 class="hero-title">VIBELAB</h1>', unsafe_allow_html=True)
-st.markdown('<div class="hero-subtitle">Premium AI Soundtrack Experience</div>', unsafe_allow_html=True)
+st.markdown('<div class="hero-subtitle">The Future of Sound</div>', unsafe_allow_html=True)
 
-# Sidebar with better contrast
-with st.sidebar:
-    st.markdown("<h2 style='color:#1DB954;'>HISTORY</h2>", unsafe_allow_html=True)
-    for i, item in enumerate(reversed(st.session_state.playlist_history)):
-        if st.button(f"⚡ {item['genre']} | {item['vibe']}", key=f"hist_{i}"):
-            st.session_state.current_tracks = item['tracks']
-
-# Interactive Controls
-st.markdown('<div class="glass-container">', unsafe_allow_html=True)
+# Main Glass Box
+st.markdown('<div class="glass-box">', unsafe_allow_html=True)
 c1, c2, c3 = st.columns(3)
 with c1:
-    name = st.text_input("YOUR NAME", placeholder="Guest")
+    u_name = st.text_input("NAME", placeholder="Identify yourself...")
 with c2:
-    genre = st.selectbox("GENRE", ["Techno", "Pop", "Rock", "Israeli", "Hip Hop", "Jazz", "Metal"])
+    u_genre = st.selectbox("GENRE", ["Techno", "Hip Hop", "Indie", "Israeli Hits", "Rock", "Pop", "Deep House"])
 with c3:
-    vibe = st.selectbox("VIBE", ["Party Mode", "Gym Flow", "Late Night", "Deep Chill", "Focus"])
+    u_vibe = st.selectbox("VIBE", ["Late Night", "Gym Flow", "Deep Chill", "Party Mode", "Work Focus"])
 
-if st.button("INITIATE EXPERIENCE ⚡"):
+if st.button("LAUNCH EXPERIENCE ⚡"):
     if not sp:
-        st.error("Connection Error: Please check your Spotify Secrets.")
-    elif not name:
-        st.warning("Identification required: Please enter your name.")
+        st.error("SYSTEM ERROR: Spotify Bridge Offline.")
+    elif not u_name:
+        st.warning("PROTOCOL ERROR: Identity Required.")
     else:
-        with st.spinner('Syncing with Spotify Global Hub...'):
+        with st.spinner('Syncing with Global Audio Hub...'):
             try:
-                # Optimized search for 2025/2026 freshness
-                current_year = datetime.now().year
-                results = sp.search(q=f"genre:{genre} {vibe} year:{current_year-1}-{current_year}", limit=10, type='track')
+                # Anti-Bug: Small delay to respect Spotify API
+                time.sleep(0.3)
+                results = sp.search(q=f"genre:{u_genre} {u_vibe}", limit=12, type='track')
                 
-                # Fallback for niche genres
-                if not results['tracks']['items']:
-                    results = sp.search(q=f"genre:{genre} {vibe}", limit=10, type='track')
-                
-                st.session_state.current_tracks = results['tracks']['items']
-                st.session_state.playlist_history.append({'genre': genre, 'vibe': vibe, 'tracks': results['tracks']['items']})
-                st.balloons()
+                if results and results['tracks']['items']:
+                    st.session_state.current_tracks = results['tracks']['items']
+                    st.session_state.playlist_history.append({'genre': u_genre, 'vibe': u_vibe, 'tracks': results['tracks']['items']})
+                    st.session_state.bg_seed += 1 # Change BG on success
+                    st.balloons()
             except:
-                st.error("Rate Limit Hit. Please wait 15 seconds for cooling.")
+                st.error("CONNECTION BUSY: Retrying in 5 seconds...")
+
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. ELITE RESULTS DISPLAY ---
+# --- 5. NEON RESULTS ---
 if st.session_state.current_tracks:
-    st.markdown(f"### ✨ Curated for {name.upper()}:")
+    st.markdown(f"<br><h2 style='color:#1DB954; font-family:Orbitron;'>CURATED FOR {u_name.upper()}</h2>", unsafe_allow_html=True)
+    
     for track in st.session_state.current_tracks:
         st.markdown(f"""
         <div class="track-card">
-            <div style="display:flex; align-items:center; gap:25px;">
-                <img src="{track['album']['images'][0]['url']}" width="90" style="border-radius:12px;">
+            <div style="display:flex; align-items:center; gap:30px;">
+                <img src="{track['album']['images'][0]['url']}" width="110" style="border-radius:15px; box-shadow: 0 0 15px rgba(29,185,84,0.4);">
                 <div style="flex-grow:1;">
-                    <div style="color:#1DB954; font-weight:800; font-size:0.8rem; letter-spacing:1px;">{track['artists'][0]['name'].upper()}</div>
-                    <div style="font-size:1.5rem; font-weight:900;">{track['name']}</div>
-                    <a href="{track['external_urls']['spotify']}" target="_blank" style="color:#1DB954; font-weight:bold; text-decoration:none;">LISTEN ON SPOTIFY →</a>
+                    <div style="color:#1DB954; font-weight:800; font-size:0.8rem; letter-spacing:2px;">{track['artists'][0]['name'].upper()}</div>
+                    <div style="font-size:1.8rem; font-weight:900; color:#fff;">{track['name']}</div>
+                    <a href="{track['external_urls']['spotify']}" target="_blank" style="background:#1DB954; color:#000; padding:10px 25px; border-radius:50px; text-decoration:none; font-weight:900; font-size:12px; display:inline-block; margin-top:10px;">PLAY ON SPOTIFY</a>
                 </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
         if track.get('preview_url'):
             st.audio(track['preview_url'])
+
+# Sidebar History
+with st.sidebar:
+    st.markdown("<h2 style='color:#1DB954; font-family:Orbitron;'>HISTORY</h2>", unsafe_allow_html=True)
+    for i, entry in enumerate(reversed(st.session_state.playlist_history)):
+        if st.button(f"● {entry['genre']} | {entry['vibe']}", key=f"hist_{i}"):
+            st.session_state.current_tracks = entry['tracks']
