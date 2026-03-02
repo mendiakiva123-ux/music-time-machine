@@ -3,169 +3,117 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 import time
 
-# --- 1. הגדרות דף וחזותיות ---
-st.set_page_config(page_title="VibeLab Elite | Global Music Engine", page_icon="🎵", layout="wide")
+# --- 1. CONFIG & PERFORMANCE ---
+st.set_page_config(page_title="VibeLab Ultimate", page_icon="⚡", layout="wide")
 
-# CSS מתקדם - עיצוב בינלאומי
+# פונקציית חיפוש עם זיכרון מטמון למהירות מקסימלית
+@st.cache_data(ttl=3600)
+def search_tracks(_sp_instance, query):
+    try:
+        return _sp_instance.search(q=query, limit=15, type='track')['tracks']['items']
+    except:
+        return []
+
+# --- 2. MULTI-LANG DATA ---
+DATA = {
+    'EN': {
+        'title': 'VIBELAB ELITE', 'name': 'Full Name', 'btn': 'GENERATE VIBE ⚡',
+        'genres': ["Pop", "Hip Hop", "Rock", "Techno", "Lofi", "R&B", "EDM"],
+        'vibes': ["Party", "Chill", "Workout", "Focus", "Deep Focus", "Romantic"],
+        'history': 'Recent Mixes', 'placeholder': 'Type your name...'
+    },
+    'HE': {
+        'title': 'VIBELAB אולטימטיבי', 'name': 'שם מלא', 'btn': 'צור חוויה ⚡',
+        'genres': ["מזרחית", "פופ", "היפ הופ", "ישראלי", "טכנו", "אלקטרוני", "ים תיכוני"],
+        'vibes': ["מסיבה", "רגוע", "אימון", "ריכוז", "רומנטי", "שבת"],
+        'history': 'היסטוריית מיקסים', 'placeholder': 'איך קוראים לך?'
+    }
+}
+
+# --- 3. DYNAMIC UI (CSS) ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-    
-    html, body, [data-testid="stAppViewContainer"] {
-        font-family: 'Inter', sans-serif;
-        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-        color: white;
-    }
-
-    /* כרטיסיות שירים בסגנון Glassmorphism */
-    .song-card {
-        background: rgba(255, 255, 255, 0.03);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        padding: 20px;
-        margin-bottom: 15px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 20px;
-    }
-    
-    .song-card:hover {
-        transform: translateY(-5px);
-        background: rgba(255, 255, 255, 0.08);
-        border-color: #1DB954;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-
-    .main-title {
-        background: linear-gradient(90deg, #1DB954, #19e68c);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 70px;
-        font-weight: 900;
-        text-align: center;
-        letter-spacing: -2px;
-    }
-
-    .stButton>button {
-        width: 100%;
-        border-radius: 50px;
-        height: 3.5rem;
-        background: linear-gradient(90deg, #1DB954, #1ed760) !important;
-        color: black !important;
-        font-weight: bold;
-        text-transform: uppercase;
-        border: none;
-        transition: 0.3s;
-    }
-
-    .stButton>button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 0 20px rgba(29, 185, 84, 0.4);
-    }
-    
-    /* עיצוב היסטוריה */
-    .history-item {
-        font-size: 0.9rem;
-        padding: 5px 10px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 5px;
-        margin-bottom: 5px;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap');
+    html, body, [data-testid="stAppViewContainer"] { font-family: 'Assistant', sans-serif; background: #050505; color: white; }
+    .main-title { background: linear-gradient(90deg, #1DB954, #00cdff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 60px; font-weight: 900; text-align: center; }
+    .stButton>button { border-radius: 12px; height: 3.5rem; background: #1DB954 !important; color: white !important; font-weight: bold; border: none; transition: 0.3s; width: 100%; }
+    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 0 15px #1DB954; }
+    .song-box { background: rgba(255,255,255,0.07); padding: 15px; border-radius: 15px; margin-bottom: 10px; border-right: 5px solid #1DB954; display: flex; align-items: center; gap: 15px; }
+    .platform-card { border: 1px solid #333; padding: 10px; border-radius: 10px; text-align: center; cursor: pointer; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 2. ניהול מצב (Session State) ---
+# --- 4. SESSION MANAGEMENT ---
+if 'lang' not in st.session_state: st.session_state.lang = 'HE'
 if 'history' not in st.session_state: st.session_state.history = []
-if 'platform' not in st.session_state: st.session_state.platform = "Spotify"
+if 'platform' not in st.session_state: st.session_state.platform = 'Spotify'
 
-# --- 3. לוגיקת חיבור חסינה ---
-def get_spotify():
-    try:
-        return spotipy.Spotify(auth_manager=SpotifyClientCredentials(
-            client_id=st.secrets["CLIENT_ID"], 
-            client_secret=st.secrets["CLIENT_SECRET"]
-        ))
-    except Exception:
-        return None
-
-# --- 4. ממשק משתמש עליון ---
-st.markdown('<h1 class="main-title">VIBELAB <span style="font-size:20px; color:white; vertical-align:middle;">ELITE</span></h1>', unsafe_allow_html=True)
-
-# בחירת פלטפורמה (עיצוב מודרני)
-col_p1, col_p2 = st.columns(2)
-with col_p1:
-    if st.button("🟢 Spotify", key="sp_btn"): st.session_state.platform = "Spotify"
-with col_p2:
-    if st.button("🔴 Apple Music (Coming Soon)", key="ap_btn"): st.session_state.platform = "Apple"
-
-st.divider()
-
-# טופס קלט חכם
-with st.container():
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        u_name = st.text_input("What's your name?", placeholder="Enter name to personalize...")
-    with col2:
-        u_genre = st.selectbox("Genre", ["Israeli Pop", "Mizrachi", "Techno", "Hip Hop", "Lofi"])
-    with col3:
-        u_vibe = st.selectbox("Vibe", ["Workout", "Chill Night", "Party Mode", "Focus"])
-
-# --- 5. מנוע יצירה ---
-if st.button("Generate My Experience ⚡"):
-    if not u_name:
-        st.error("Wait! We need your name to build the vibe.")
-    else:
-        sp = get_spotify()
-        if not sp:
-            st.warning("Connection issue. Please check API keys.")
-        else:
-            with st.status("Analyzing your vibe...", expanded=True) as status:
-                st.write("Searching global charts...")
-                time.sleep(1) # אפקט פסיכולוגי של "עבודה"
-                try:
-                    query = f"{u_genre} {u_vibe}"
-                    results = sp.search(q=query, limit=12)
-                    tracks = results['tracks']['items']
-                    
-                    if tracks:
-                        st.session_state.current_mix = tracks
-                        st.session_state.history.append(f"{u_name}: {u_genre} ({u_vibe})")
-                        status.update(label="Vibe Sync Complete!", state="complete")
-                        st.balloons()
-                    else:
-                        st.error("No tracks found. Try a different vibe!")
-                except Exception as e:
-                    st.error("Global servers are busy. Try again.")
-
-# --- 6. תצוגת תוצאות פרימיום ---
-if 'current_mix' in st.session_state:
-    st.markdown(f"### ✨ {u_name}'s {u_vibe} Mix")
-    
-    # תצוגת גריד (Grid)
-    cols = st.columns(2)
-    for idx, t in enumerate(st.session_state.current_mix):
-        with cols[idx % 2]:
-            st.markdown(f"""
-            <div class="song-card">
-                <img src="{t['album']['images'][0]['url']}" width="80" style="border-radius:12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-                <div style="flex-grow:1;">
-                    <div style="font-size:1.1rem; font-weight:700; margin-bottom:4px;">{t['name']}</div>
-                    <div style="color:#1DB954; font-weight:500;">{t['artists'][0]['name']}</div>
-                </div>
-                <a href="{t['external_urls']['spotify']}" target="_blank">
-                    <div style="background:#1DB954; color:black; padding:8px 15px; border-radius:30px; font-weight:bold; font-size:12px;">LISTEN</div>
-                </a>
-            </div>
-            """, unsafe_allow_html=True)
-
-# --- 7. Sidebar היסטוריה ומידע ---
+# --- 5. SIDEBAR & SETTINGS ---
 with st.sidebar:
-    st.markdown("### 📜 Session History")
-    for h in st.session_state.history[::-1]:
-        st.markdown(f'<div class="history-item">{h}</div>', unsafe_allow_html=True)
+    st.markdown("### 🌐 Language / שפה")
+    col_l1, col_l2 = st.columns(2)
+    if col_l1.button("🇮🇱 HE"): st.session_state.lang = 'HE'
+    if col_l2.button("🇺🇸 EN"): st.session_state.lang = 'EN'
     
     st.divider()
-    st.markdown("### 🚀 Pro Tip")
-    st.info("Try mixing 'Israeli' with 'Techno' for a unique party vibe!")
+    st.markdown(f"### 🕒 {DATA[st.session_state.lang]['history']}")
+    for h in st.session_state.history[-5:]:
+        st.caption(f"🎵 {h}")
+
+# --- 6. MAIN INTERFACE ---
+L = DATA[st.session_state.lang]
+st.markdown(f'<h1 class="main-title">{L["title"]}</h1>', unsafe_allow_html=True)
+
+# בחירת פלטפורמה
+p_col1, p_col2 = st.columns(2)
+with p_col1:
+    if st.button("Spotify 🟢"): st.session_state.platform = 'Spotify'
+with p_col2:
+    if st.button("Apple Music 🔴"): st.session_state.platform = 'Apple'
+
+st.info(f"Platform: **{st.session_state.platform}**")
+
+# קלט משתמש
+u_name = st.text_input(L['name'], placeholder=L['placeholder'])
+c1, c2 = st.columns(2)
+with c1: u_genre = st.selectbox("Genre / ז'אנר", L['genres'])
+with c2: u_vibe = st.selectbox("Vibe / אווירה", L['vibes'])
+
+# --- 7. EXECUTION ---
+if st.button(L['btn']):
+    if not u_name:
+        st.warning("Please enter your name / נא להזין שם")
+    else:
+        try:
+            sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+                client_id=st.secrets["CLIENT_ID"], 
+                client_secret=st.secrets["CLIENT_SECRET"]
+            ))
+            
+            with st.spinner('Building your Vibe...'):
+                query = f"{u_genre} {u_vibe}"
+                tracks = search_tracks(sp, query)
+                
+                if tracks:
+                    st.session_state.history.append(f"{u_name}: {u_genre}")
+                    st.balloons()
+                    
+                    st.markdown(f"### ✨ {u_name}'s Special Mix:")
+                    for t in tracks:
+                        # בחירת לינק לפי פלטפורמה (ב-Apple זה יחפש כרגע, כי אין API פתוח כמו ספוטיפיי ללא אישור)
+                        link = t['external_urls']['spotify'] if st.session_state.platform == 'Spotify' else f"https://music.apple.com/search?term={t['name']}"
+                        
+                        st.markdown(f"""
+                        <div class="song-box">
+                            <img src="{t['album']['images'][0]['url']}" width="60" style="border-radius:10px;">
+                            <div style="flex-grow:1; {'text-align:right' if st.session_state.lang == 'HE' else ''}">
+                                <div style="font-weight:bold; font-size:16px;">{t['name']}</div>
+                                <div style="color:#1DB954;">{t['artists'][0]['name']}</div>
+                            </div>
+                            <a href="{link}" target="_blank" style="color:#1DB954; text-decoration:none; font-weight:bold;">LISTEN</a>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.error("No results found. Try changing the genre.")
+        except Exception as e:
+            st.error("Connection Error. Make sure your SECRETS are configured.")
