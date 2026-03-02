@@ -5,11 +5,11 @@ from spotipy.oauth2 import SpotifyClientCredentials
 # --- 1. הגדרות דף ---
 st.set_page_config(page_title="VibeLab Elite", page_icon="🎧", layout="centered")
 
-# --- 2. עיצוב (CSS) חסין ומקצועי ---
+# --- 2. עיצוב (CSS) ---
 st.markdown(r"""
 <style>
     .stApp { background-color: #0e1117; color: white; }
-    .main-title { color: #1DB954; font-size: 55px; font-weight: 900; text-align: center; margin-bottom: 20px;}
+    .main-title { color: #1DB954; font-size: 50px; font-weight: 900; text-align: center; }
     .stButton>button { 
         background-color: #1DB954 !important; color: black !important; 
         font-weight: bold; border-radius: 12px; height: 50px; border: none; width: 100%;
@@ -21,36 +21,30 @@ st.markdown(r"""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. נתונים מורחבים ב-4 שפות ---
-# ברירת מחדל אנגלית - הוספתי את כל הסגנונות שביקשת
+# --- 3. נתונים ושפות (Default: EN) ---
 DATA = {
     'EN': {
-        'title': 'VIBELAB ELITE', 'name': 'Full Name', 'btn': 'GENERATE MIX ⚡', 
-        'genres': ["Pop", "Rock", "Hip Hop", "Techno", "Metal", "Jazz", "R&B", "Electronic", "Lofi", "Country"], 
-        'vibes': ["Party", "Chill", "Workout", "Focus", "Romantic", "Deep Focus"],
-        'labels': {'genre': 'Select Genre', 'vibe': 'Select Vibe'}
+        'title': 'VIBELAB', 'name': 'Full Name', 'btn': 'GENERATE ⚡', 
+        'genres': ["Pop", "Hip Hop", "Rock", "Techno", "R&B", "Electronic", "Lofi"], 
+        'vibes': ["Party", "Chill", "Workout", "Focus", "Romantic"]
     },
     'HE': {
         'title': 'VIBELAB', 'name': 'שם מלא', 'btn': 'צור חוויה ⚡', 
-        'genres': ["מזרחית", "פופ", "רוק", "היפ הופ", "ישראלי", "טכנו", "מטאל", "ג'אז", "אלקטרוני", "ים תיכוני"], 
-        'vibes': ["מסיבה", "רגוע", "אימון", "ריכוז", "רומנטי", "שבת"],
-        'labels': {'genre': 'בחר ז'אנר', 'vibe': 'בחר אווירה'}
+        'genres': ["מזרחית", "פופ", "היפ הופ", "ישראלי", "טכנו", "אלקטרוני", "ים תיכוני"], 
+        'vibes': ["מסיבה", "רגוע", "אימון", "ריכוז", "רומנטי"]
     },
     'RU': {
         'title': 'VIBELAB', 'name': 'Имя', 'btn': 'СОЗДАТЬ ⚡', 
-        'genres': ["Pop", "Rock", "Hip Hop", "Metal", "Jazz", "Deep House", "Russian Pop"], 
-        'vibes': ["Вечеринка", "Релакс", "Тренировка", "Фокус", "Романтика"],
-        'labels': {'genre': 'Выберите жанр', 'vibe': 'Выберите вайб'}
+        'genres': ["Pop", "Rock", "Hip Hop", "Deep House", "Russian Pop"], 
+        'vibes': ["Вечеринка", "Релакс", "Тренировка", "Фокус"]
     },
     'AR': {
         'title': 'VIBELAB', 'name': 'الاسم', 'btn': 'انطلق ⚡', 
-        'genres': ["Arabic Pop", "Mahraganat", "Rock", "Tarab", "Hip Hop", "Techno"], 
-        'vibes': ["حفلة", "استرخاء", "تمرین", "تركيز", "رومانسي"],
-        'labels': {'genre': 'اختر النوع', 'vibe': 'اختر الأجواء'}
+        'genres': ["Arabic Pop", "Mahraganat", "Tarab", "Hip Hop"], 
+        'vibes': ["حفلة", "استرخاء", "تمرین", "تركيز"]
     }
 }
 
-# הגדרת ברירת מחדל לאנגלית
 if 'lang' not in st.session_state: st.session_state.lang = 'EN'
 if 'tracks' not in st.session_state: st.session_state.tracks = []
 
@@ -61,12 +55,12 @@ def get_sp():
             client_id=st.secrets["CLIENT_ID"].strip(),
             client_secret=st.secrets["CLIENT_SECRET"].strip()
         ))
-    except Exception:
+    except Exception as e:
         st.error("Authentication Error: Check your Streamlit Secrets.")
         return None
 
-# --- 5. ממשק משתמש דינמי ---
-# כפתורי שפה בראש הדף
+# --- 5. ממשק משתמש ---
+# בחירת שפה
 c_lang = st.columns(4)
 langs = [("🇺🇸 EN", "EN"), ("🇮🇱 HE", "HE"), ("🇷🇺 RU", "RU"), ("🇸🇦 AR", "AR")]
 for i, (label, code) in enumerate(langs):
@@ -77,13 +71,13 @@ for i, (label, code) in enumerate(langs):
 L = DATA[st.session_state.lang]
 st.markdown(f'<h1 class="main-title">{L["title"]}</h1>', unsafe_allow_html=True)
 
-# קלטים שמשתנים לפי השפה
+# בחירות משתמש
 u_name = st.text_input(L['name'], placeholder="...")
 c1, c2 = st.columns(2)
-with c1: u_genre = st.selectbox(L['labels']['genre'], L['genres'])
-with c2: u_vibe = st.selectbox(L['labels']['vibe'], L['vibes'])
+with c1: u_genre = st.selectbox("Genre", L['genres'])
+with c2: u_vibe = st.selectbox("Vibe", L['vibes'])
 
-# לוגיקת חיפוש חסינה
+# לוגיקת חיפוש
 if st.button(L['btn']):
     if not u_name:
         st.warning("Please enter your name")
@@ -92,38 +86,30 @@ if st.button(L['btn']):
         if sp:
             with st.spinner('Loading...'):
                 try:
-                    # חיפוש משולב
+                    # חיפוש משולב ז'אנר ואווירה
                     query = f"{u_genre} {u_vibe}"
-                    res = sp.search(q=query, limit=12, type='track')
-                    
-                    # אם לא נמצאו תוצאות בחיפוש המשולב, נחפש רק לפי ז'אנר (חסינות)
-                    if not res['tracks']['items']:
-                        res = sp.search(q=u_genre, limit=12, type='track')
-                        
+                    res = sp.search(q=query, limit=10, type='track')
                     if res and res['tracks']['items']:
                         st.session_state.tracks = res['tracks']['items']
                         st.balloons()
                     else:
-                        st.error("No results found. Try a different genre.")
-                except Exception:
-                    st.error("Search failed. Check your connection.")
+                        st.error("No results found for this combination.")
+                except Exception as e:
+                    st.error("Spotify Search Error. Try again in a moment.")
 
-# --- 6. תצוגת תוצאות ---
+# --- 6. תוצאות ---
 if st.session_state.tracks:
     st.markdown(f"### {u_name}'s Mix:")
-    # כיוון טקסט (RTL/LTR)
-    is_rtl = st.session_state.lang in ['HE', 'AR']
-    alignment = "right" if is_rtl else "left"
-    
     for t in st.session_state.tracks:
+        # בדיקה אם יש תמונה לאלבום (למניעת שגיאות תצוגה)
         img_url = t['album']['images'][0]['url'] if t['album']['images'] else ""
         
         st.markdown(f"""
-        <div class="song-box" style="direction: {'rtl' if is_rtl else 'ltr'};">
-            <img src="{img_url}" width="60" style="border-radius:10px;">
-            <div style="flex-grow:1; text-align: {alignment};">
-                <div style="font-weight:bold; font-size:16px;">{t['name']}</div>
-                <div style="color:#1DB954; font-size:14px;">{t['artists'][0]['name']}</div>
+        <div class="song-box">
+            <img src="{img_url}" width="55" style="border-radius:8px;">
+            <div style="flex-grow:1; {'text-align:right' if st.session_state.lang == 'HE' or st.session_state.lang == 'AR' else ''}">
+                <div style="font-weight:bold;">{t['name']}</div>
+                <div style="color:#1DB954; font-size:13px;">{t['artists'][0]['name']}</div>
             </div>
             <a href="{t['external_urls']['spotify']}" target="_blank" style="color:#1DB954; text-decoration:none; font-weight:bold;">PLAY</a>
         </div>
